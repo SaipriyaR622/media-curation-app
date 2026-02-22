@@ -5,6 +5,8 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 const STORAGE_KEY = "fragments-profile";
 const LEGACY_STORAGE_KEY = "cozy-library-profile";
 const MIGRATION_FLAG_PREFIX = "fragments-profile-migrated";
+const LEGACY_OWNER_KEY = "fragments-profile-owner";
+const LAST_AUTH_USER_KEY = "fragments-last-auth-user";
 const MISSING_FOLLOWS_TABLE_CODE = "42P01";
 
 interface ProfileRow {
@@ -43,17 +45,46 @@ const defaultProfile: Profile = {
   following: 0,
 };
 
-function loadProfile(): Profile {
+function getStorageKey(userId?: string | null) {
+  return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
+}
+
+function getLegacyProfileRaw() {
+  return localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
+}
+
+function loadProfileFromStorage(storageKey: string, legacyKey?: string): Profile {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey) ?? (legacyKey ? localStorage.getItem(legacyKey) : null);
     return raw ? { ...defaultProfile, ...JSON.parse(raw) } : defaultProfile;
   } catch {
     return defaultProfile;
   }
 }
 
-function saveProfile(profile: Profile) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+function saveProfile(profile: Profile, storageKey: string) {
+  localStorage.setItem(storageKey, JSON.stringify(profile));
+}
+
+function maybeSeedScopedProfile(userId: string) {
+  const scopedKey = getStorageKey(userId);
+  if (localStorage.getItem(scopedKey)) {
+    return;
+  }
+
+  const legacyOwner = localStorage.getItem(LEGACY_OWNER_KEY);
+  const lastAuthUser = localStorage.getItem(LAST_AUTH_USER_KEY);
+  if ((legacyOwner && legacyOwner !== userId) || (lastAuthUser && lastAuthUser !== userId)) {
+    return;
+  }
+
+  const legacyRaw = getLegacyProfileRaw();
+  if (!legacyRaw) {
+    return;
+  }
+
+  localStorage.setItem(scopedKey, legacyRaw);
+  localStorage.setItem(LEGACY_OWNER_KEY, userId);
 }
 
 function mapProfileRowToProfile(row: ProfileRow): Profile {
@@ -137,7 +168,9 @@ async function loadProfilesByIds(ids: string[]) {
 }
 
 export function useProfile() {
-  const [profile, setProfile] = useState<Profile>(loadProfile);
+  const [profile, setProfile] = useState<Profile>(() =>
+    isSupabaseConfigured ? defaultProfile : loadProfileFromStorage(STORAGE_KEY, LEGACY_STORAGE_KEY)
+  );
   const [dbUserId, setDbUserId] = useState<string | null>(null);
   const [discoverProfiles, setDiscoverProfiles] = useState<FollowableProfile[]>([]);
   const [followingIds, setFollowingIds] = useState<string[]>([]);
@@ -217,6 +250,9 @@ export function useProfile() {
       const userId = await getCurrentUserId();
       if (isActive) {
         setDbUserId(userId);
+        if (userId) {
+          localStorage.setItem(LAST_AUTH_USER_KEY, userId);
+        }
       }
     };
 
@@ -227,6 +263,9 @@ export function useProfile() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (isActive) {
         setDbUserId(session?.user?.id ?? null);
+        if (session?.user?.id) {
+          localStorage.setItem(LAST_AUTH_USER_KEY, session.user.id);
+        }
       }
     });
 
@@ -243,10 +282,13 @@ export function useProfile() {
       setFollowingProfiles([]);
       setFollowingIds([]);
       setDiscoverProfiles([]);
+      setProfile(defaultProfile);
       return;
     }
 
     let isActive = true;
+    maybeSeedScopedProfile(dbUserId);
+    setProfile(loadProfileFromStorage(getStorageKey(dbUserId)));
 
     const loadFromDatabase = async () => {
       try {
@@ -270,7 +312,7 @@ export function useProfile() {
         } else {
           const migrationFlagKey = `${MIGRATION_FLAG_PREFIX}:${dbUserId}`;
           const isMigrated = localStorage.getItem(migrationFlagKey) === "1";
-          const localProfile = loadProfile();
+          const localProfile = loadProfileFromStorage(getStorageKey(dbUserId));
           const profileToPersist = isMigrated ? defaultProfile : localProfile;
 
           await upsertProfileRow(profileToPersist, dbUserId);
@@ -315,8 +357,12 @@ export function useProfile() {
   }, [dbUserId, refreshSocialGraph]);
 
   useEffect(() => {
-    saveProfile(profile);
-  }, [profile]);
+    if (isSupabaseConfigured && !dbUserId) {
+      return;
+    }
+
+    saveProfile(profile, getStorageKey(dbUserId));
+  }, [dbUserId, profile]);
 
   const updateProfile = useCallback(
     (updates: Partial<Profile>) => {
