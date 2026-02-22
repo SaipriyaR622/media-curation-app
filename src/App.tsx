@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Lenis from "lenis";
-import { useEffect } from "react";
+import { useEffect, type ReactNode, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import Landing from "./pages/Landing";
@@ -16,10 +16,52 @@ import NotFound from "./pages/NotFound";
 import Movies from "./pages/Movies";
 import Diary from "./pages/Diary";
 import Songs from "./pages/Songs";
+import { isSupabaseConfigured, supabase } from "./lib/supabase";
 
 const queryClient = new QueryClient();
 
+interface AuthRouteProps {
+  authReady: boolean;
+  isAuthenticated: boolean;
+  children: ReactNode;
+}
+
+function ProtectedRoute({ authReady, isAuthenticated, children }: AuthRouteProps) {
+  if (!isSupabaseConfigured) {
+    return <>{children}</>;
+  }
+
+  if (!authReady) {
+    return <div className="min-h-screen bg-background" />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function LoginRoute({ authReady, isAuthenticated }: Pick<AuthRouteProps, "authReady" | "isAuthenticated">) {
+  if (!isSupabaseConfigured) {
+    return <Login />;
+  }
+
+  if (!authReady) {
+    return <div className="min-h-screen bg-background" />;
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/library/books" replace />;
+  }
+
+  return <Login />;
+}
+
 const App = () => {
+  const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
   useEffect(() => {
     if (typeof window.matchMedia !== "function") {
       return;
@@ -49,29 +91,129 @@ const App = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      setAuthReady(true);
+      return;
+    }
+
+    let isActive = true;
+
+    const hydrateAuthState = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!isActive) {
+        return;
+      }
+
+      setIsAuthenticated(Boolean(data.session));
+      setAuthReady(true);
+    };
+
+    void hydrateAuthState();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isActive) {
+        return;
+      }
+
+      setIsAuthenticated(Boolean(session));
+      setAuthReady(true);
+    });
+
+    return () => {
+      isActive = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <GlobalSearchPalette />
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/library" element={<Navigate to="/library/books" replace />} />
-              <Route path="/library/books" element={<Index />} />
-              <Route path="/library/movies" element={<Movies />} />
-              <Route path="/library/songs" element={<Songs />} />
-              <Route path="/library/diary" element={<Diary />} />
-              <Route path="/movies" element={<Navigate to="/library/movies" replace />} />
-              <Route path="/songs" element={<Navigate to="/library/songs" replace />} />
-              <Route path="/book/:id" element={<BookDetail />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <GlobalSearchPalette />
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<LoginRoute authReady={authReady} isAuthenticated={isAuthenticated} />} />
+            <Route
+              path="/library"
+              element={
+                <ProtectedRoute authReady={authReady} isAuthenticated={isAuthenticated}>
+                  <Navigate to="/library/books" replace />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/library/books"
+              element={
+                <ProtectedRoute authReady={authReady} isAuthenticated={isAuthenticated}>
+                  <Index />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/library/movies"
+              element={
+                <ProtectedRoute authReady={authReady} isAuthenticated={isAuthenticated}>
+                  <Movies />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/library/songs"
+              element={
+                <ProtectedRoute authReady={authReady} isAuthenticated={isAuthenticated}>
+                  <Songs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/library/diary"
+              element={
+                <ProtectedRoute authReady={authReady} isAuthenticated={isAuthenticated}>
+                  <Diary />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/movies"
+              element={
+                <ProtectedRoute authReady={authReady} isAuthenticated={isAuthenticated}>
+                  <Navigate to="/library/movies" replace />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/songs"
+              element={
+                <ProtectedRoute authReady={authReady} isAuthenticated={isAuthenticated}>
+                  <Navigate to="/library/songs" replace />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/book/:id"
+              element={
+                <ProtectedRoute authReady={authReady} isAuthenticated={isAuthenticated}>
+                  <BookDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute authReady={authReady} isAuthenticated={isAuthenticated}>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
         </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>

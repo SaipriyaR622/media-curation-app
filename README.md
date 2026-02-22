@@ -28,6 +28,8 @@ The database schema is managed via Postgres. To initialize the archive, run the 
 
 002_rls.sql (Security Policies)
 
+003_profile_follows.sql (Follow relationships + policies)
+
 3. Installation
 Bash
 # Install dependencies

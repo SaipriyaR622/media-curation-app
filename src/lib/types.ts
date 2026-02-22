@@ -32,6 +32,8 @@ export interface Profile {
   bio: string;
   yearlyGoal: number;
   avatarUrl?: string;
+  followers: number;
+  following: number;
 }
 
 export const STATUS_LABELS: Record<BookStatus, string> = {

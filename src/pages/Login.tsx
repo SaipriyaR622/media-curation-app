@@ -1,101 +1,214 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ShieldCheck, ArrowRight } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { ArrowRight, ShieldCheck } from "lucide-react";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 export default function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Here you would normally handle your auth logic
-    navigate('/library/books');
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      return;
+    }
+
+    let isActive = true;
+
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (isActive && data.session) {
+        navigate("/library/books", { replace: true });
+      }
+    };
+
+    void checkSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        navigate("/library/books", { replace: true });
+      }
+    });
+
+    return () => {
+      isActive = false;
+      subscription.unsubscribe();
+    };
+  }, [navigate]);
+
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setErrorMessage("");
+    setStatusMessage("");
+
+    if (!isSupabaseConfigured || !supabase) {
+      navigate("/library/books");
+      return;
+    }
+
+    if (!email.trim() || !password.trim()) {
+      setErrorMessage("Enter both email and password.");
+      return;
+    }
+
+    setSubmitting(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (error) {
+      setErrorMessage(error.message);
+      setSubmitting(false);
+      return;
+    }
+
+    navigate("/library/books", { replace: true });
+  };
+
+  const handleSignUp = async () => {
+    setErrorMessage("");
+    setStatusMessage("");
+
+    if (!isSupabaseConfigured || !supabase) {
+      setErrorMessage("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY first.");
+      return;
+    }
+
+    if (!email.trim() || !password.trim()) {
+      setErrorMessage("Enter both email and password to create an account.");
+      return;
+    }
+
+    setSubmitting(true);
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/library/books`,
+      },
+    });
+
+    if (error) {
+      setErrorMessage(error.message);
+      setSubmitting(false);
+      return;
+    }
+
+    if (data.session) {
+      navigate("/library/books", { replace: true });
+      return;
+    }
+
+    setStatusMessage("Account created. Check your email to confirm, then sign in.");
+    setSubmitting(false);
   };
 
   return (
-    <div className="relative min-h-screen w-full bg-[#eceae6] flex flex-col items-center justify-center overflow-hidden p-6">
-      
-      {/* BACKGROUND DECOR (Same as Landing for continuity) */}
+    <div className="relative min-h-screen w-full overflow-hidden bg-[#eceae6] p-6">
       <div className="absolute inset-0 pointer-events-none opacity-20 blur-3xl">
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-stone-400 rounded-full" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-stone-500 rounded-full" />
+        <div className="absolute left-1/4 top-1/4 h-64 w-64 rounded-full bg-stone-400" />
+        <div className="absolute bottom-1/4 right-1/4 h-96 w-96 rounded-full bg-stone-500" />
       </div>
 
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-        className="relative z-10 w-full max-w-sm"
-      >
-        {/* THE LOGIN CARD */}
-        <div className="bg-[#fdfbf7] border border-stone-200 p-8 shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-sm">
-          
-          {/* Header Area */}
-          <div className="flex justify-between items-start mb-12">
-            <div className="space-y-1">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold">Identity Verification</p>
-              <h2 className="font-serif text-2xl text-stone-900 font-medium italic">Private Archive</h2>
-            </div>
-            <ShieldCheck className="text-stone-300 h-6 w-6" />
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-10">
-            <div className="relative group">
-              <label className="text-[9px] uppercase tracking-widest text-stone-400 font-bold absolute -top-6 left-0">
-                Email Address
-              </label>
-              <input 
-                type="email" 
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your credentials"
-                className="w-full bg-transparent border-b border-stone-300 py-2 font-serif text-lg focus:outline-none focus:border-stone-800 transition-colors placeholder:text-stone-200"
-              />
-            </div>
-
-            <div className="relative group">
-              <label className="text-[9px] uppercase tracking-widest text-stone-400 font-bold absolute -top-6 left-0">
-                Passcode
-              </label>
-              <input 
-                type="password" 
-                placeholder="••••••••"
-                className="w-full bg-transparent border-b border-stone-300 py-2 font-serif text-lg focus:outline-none focus:border-stone-800 transition-colors placeholder:text-stone-200 text-stone-800"
-              />
-            </div>
-
-            <motion.button
-              whileHover={{ x: 5 }}
-              type="submit"
-              className="flex items-center gap-3 group"
-            >
-              <span className="font-serif italic text-stone-900 group-hover:underline underline-offset-4 decoration-stone-300">
-                Grant access
-              </span>
-              <div className="h-8 w-8 rounded-full border border-stone-900 flex items-center justify-center group-hover:bg-stone-900 group-hover:text-white transition-all duration-300">
-                <ArrowRight className="h-4 w-4" />
+      <div className="flex min-h-screen items-center justify-center">
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-10 w-full max-w-sm"
+        >
+          <div className="rounded-sm border border-stone-200 bg-[#fdfbf7] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
+            <div className="mb-12 flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-400">Identity Verification</p>
+                <h2 className="font-serif text-2xl font-medium italic text-stone-900">Private Archive</h2>
               </div>
-            </motion.button>
-          </form>
+              <ShieldCheck className="h-6 w-6 text-stone-300" />
+            </div>
 
-          {/* Card Footer Detail */}
-          <div className="mt-12 pt-6 border-t border-dashed border-stone-200">
-            <div className="flex justify-between items-center text-[8px] font-mono text-stone-300 uppercase tracking-tighter">
-              <span>Auth System v2.0</span>
-              <span>Sequence: 099-23</span>
+            <form onSubmit={(event) => void handleLogin(event)} className="space-y-10">
+              <div className="group relative">
+                <label className="absolute -top-6 left-0 text-[9px] font-bold uppercase tracking-widest text-stone-400">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="Enter your credentials"
+                  className="w-full border-b border-stone-300 bg-transparent py-2 font-serif text-lg placeholder:text-stone-200 focus:border-stone-800 focus:outline-none transition-colors"
+                />
+              </div>
+
+              <div className="group relative">
+                <label className="absolute -top-6 left-0 text-[9px] font-bold uppercase tracking-widest text-stone-400">
+                  Passcode
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="********"
+                  className="w-full border-b border-stone-300 bg-transparent py-2 font-serif text-lg text-stone-800 placeholder:text-stone-200 focus:border-stone-800 focus:outline-none transition-colors"
+                />
+              </div>
+
+              <motion.button
+                whileHover={{ x: 5 }}
+                type="submit"
+                disabled={submitting}
+                className="group flex items-center gap-3 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <span className="font-serif italic text-stone-900 underline-offset-4 decoration-stone-300 group-hover:underline">
+                  {submitting ? "Authorizing..." : "Grant access"}
+                </span>
+                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-stone-900 transition-all duration-300 group-hover:bg-stone-900 group-hover:text-white">
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+              </motion.button>
+
+              <button
+                type="button"
+                onClick={() => void handleSignUp()}
+                disabled={submitting}
+                className="text-xs uppercase tracking-[0.2em] text-stone-500 transition-colors hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Create account
+              </button>
+
+              {errorMessage && <p className="text-xs text-destructive">{errorMessage}</p>}
+              {statusMessage && <p className="text-xs text-stone-500">{statusMessage}</p>}
+            </form>
+
+            <div className="mt-12 border-t border-dashed border-stone-200 pt-6">
+              <div className="flex items-center justify-between text-[8px] font-mono uppercase tracking-tighter text-stone-300">
+                <span>Auth System v2.0</span>
+                <span>Sequence: 099-23</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Subtle Shadow "Under" the card */}
-        <div className="absolute -bottom-4 left-4 right-4 h-8 bg-black/5 blur-xl -z-10 rounded-full" />
-      </motion.div>
+          <div className="absolute -bottom-4 left-4 right-4 -z-10 h-8 rounded-full bg-black/5 blur-xl" />
+        </motion.div>
+      </div>
 
-      {/* GRAIN OVERLAY */}
-      <div className="pointer-events-none fixed inset-0 opacity-[0.03] z-50" 
-           style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
+      <div
+        className="pointer-events-none fixed inset-0 z-50 opacity-[0.03]"
+        style={{
+          backgroundImage:
+            'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")',
+        }}
+      />
     </div>
   );
 }
+

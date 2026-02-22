@@ -396,12 +396,8 @@ export function useBooks() {
   }, [dbUserId]);
 
   useEffect(() => {
-    if (dbUserId) {
-      return;
-    }
-
     saveBooks(books);
-  }, [books, dbUserId]);
+  }, [books]);
 
   const addBook = useCallback(
     (
@@ -439,18 +435,10 @@ export function useBooks() {
 
   const updateBook = useCallback(
     (id: string, updates: Partial<Book>) => {
-      let updatedBook: Book | null = null;
+      const nextBooks = books.map((book) => (book.id === id ? normalizeBook({ ...book, ...updates }) : book));
+      const updatedBook = nextBooks.find((book) => book.id === id);
 
-      setBooks((prev) =>
-        prev.map((book) => {
-          if (book.id !== id) {
-            return book;
-          }
-
-          updatedBook = normalizeBook({ ...book, ...updates });
-          return updatedBook;
-        })
-      );
+      setBooks(nextBooks);
 
       if (!supabase || !dbUserId || !updatedBook) {
         return;
@@ -474,13 +462,13 @@ export function useBooks() {
           }
 
           try {
-            await replaceDiaryEntriesInDatabase(dbUserId, id, updatedBook?.diaryEntries ?? []);
+            await replaceDiaryEntriesInDatabase(dbUserId, id, updatedBook.diaryEntries ?? []);
           } catch (diaryError) {
             console.error("Failed to sync diary entries", diaryError);
           }
         });
     },
-    [dbUserId]
+    [books, dbUserId]
   );
 
   const deleteBook = useCallback(

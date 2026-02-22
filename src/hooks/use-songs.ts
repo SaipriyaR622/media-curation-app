@@ -1,9 +1,33 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { NewSongInput, Song } from '@/lib/types';
-import { SpotifyRecentTrackResult, SpotifyTrackResult } from '@/lib/spotifyService';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { NewSongInput, Song } from "@/lib/types";
+import { SpotifyRecentTrackResult, SpotifyTrackResult } from "@/lib/spotifyService";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
-const STORAGE_KEY = 'fragments-songs';
-const LEGACY_STORAGE_KEYS = ['cozy-song-journal-songs', 'fragments-tracks'];
+const STORAGE_KEY = "fragments-songs";
+const LEGACY_STORAGE_KEYS = ["cozy-song-journal-songs", "fragments-tracks"];
+const MIGRATION_FLAG_PREFIX = "fragments-songs-migrated";
+
+interface SongRow {
+  id: string;
+  user_id: string;
+  title: string;
+  artist: string;
+  album: string;
+  spotify_id: string;
+  cover_url: string;
+  spotify_url: string;
+  preview_url: string;
+  duration_ms: number;
+  total_minutes_listened: number;
+  play_count: number;
+  repeat_count: number;
+  currently_listening: boolean;
+  last_played_at: string | null;
+  rating: number;
+  review: string;
+  notes: string;
+  date_added: string;
+}
 
 function normalizeSong(value: unknown): Song {
   const candidate = (value ?? {}) as Partial<Song> & {
@@ -14,44 +38,44 @@ function normalizeSong(value: unknown): Song {
   };
 
   const title =
-    typeof candidate.title === 'string'
+    typeof candidate.title === "string"
       ? candidate.title
-      : typeof candidate.name === 'string'
+      : typeof candidate.name === "string"
         ? candidate.name
-        : '';
+        : "";
   const artist =
-    typeof candidate.artist === 'string'
+    typeof candidate.artist === "string"
       ? candidate.artist
-      : typeof candidate.singer === 'string'
+      : typeof candidate.singer === "string"
         ? candidate.singer
-        : '';
+        : "";
 
   return {
-    id: typeof candidate.id === 'string' ? candidate.id : crypto.randomUUID(),
+    id: typeof candidate.id === "string" ? candidate.id : crypto.randomUUID(),
     title,
     artist,
-    album: typeof candidate.album === 'string' ? candidate.album : '',
-    spotifyId: typeof candidate.spotifyId === 'string' ? candidate.spotifyId : '',
-    coverUrl: typeof candidate.coverUrl === 'string' ? candidate.coverUrl : '',
+    album: typeof candidate.album === "string" ? candidate.album : "",
+    spotifyId: typeof candidate.spotifyId === "string" ? candidate.spotifyId : "",
+    coverUrl: typeof candidate.coverUrl === "string" ? candidate.coverUrl : "",
     spotifyUrl:
-      typeof candidate.spotifyUrl === 'string'
+      typeof candidate.spotifyUrl === "string"
         ? candidate.spotifyUrl
-        : typeof candidate.url === 'string'
+        : typeof candidate.url === "string"
           ? candidate.url
-          : typeof candidate.link === 'string'
+          : typeof candidate.link === "string"
             ? candidate.link
-            : '',
-    previewUrl: typeof candidate.previewUrl === 'string' ? candidate.previewUrl : '',
-    durationMs: typeof candidate.durationMs === 'number' ? candidate.durationMs : 0,
-    totalMinutesListened: typeof candidate.totalMinutesListened === 'number' ? candidate.totalMinutesListened : 0,
-    playCount: typeof candidate.playCount === 'number' ? candidate.playCount : 0,
-    repeatCount: typeof candidate.repeatCount === 'number' ? candidate.repeatCount : 0,
+            : "",
+    previewUrl: typeof candidate.previewUrl === "string" ? candidate.previewUrl : "",
+    durationMs: typeof candidate.durationMs === "number" ? candidate.durationMs : 0,
+    totalMinutesListened: typeof candidate.totalMinutesListened === "number" ? candidate.totalMinutesListened : 0,
+    playCount: typeof candidate.playCount === "number" ? candidate.playCount : 0,
+    repeatCount: typeof candidate.repeatCount === "number" ? candidate.repeatCount : 0,
     currentlyListening: Boolean(candidate.currentlyListening),
-    lastPlayedAt: typeof candidate.lastPlayedAt === 'string' ? candidate.lastPlayedAt : '',
-    rating: typeof candidate.rating === 'number' ? candidate.rating : 0,
-    review: typeof candidate.review === 'string' ? candidate.review : '',
-    notes: typeof candidate.notes === 'string' ? candidate.notes : '',
-    dateAdded: typeof candidate.dateAdded === 'string' ? candidate.dateAdded : new Date().toISOString(),
+    lastPlayedAt: typeof candidate.lastPlayedAt === "string" ? candidate.lastPlayedAt : "",
+    rating: typeof candidate.rating === "number" ? candidate.rating : 0,
+    review: typeof candidate.review === "string" ? candidate.review : "",
+    notes: typeof candidate.notes === "string" ? candidate.notes : "",
+    dateAdded: typeof candidate.dateAdded === "string" ? candidate.dateAdded : new Date().toISOString(),
   };
 }
 
@@ -92,12 +116,267 @@ function calculateMinutesFromDuration(song: Song) {
   return Math.max(Math.round(song.durationMs / 60000), 1);
 }
 
+function mapSongRowToSong(row: SongRow): Song {
+  return {
+    id: row.id,
+    title: row.title ?? "",
+    artist: row.artist ?? "",
+    album: row.album ?? "",
+    spotifyId: row.spotify_id ?? "",
+    coverUrl: row.cover_url ?? "",
+    spotifyUrl: row.spotify_url ?? "",
+    previewUrl: row.preview_url ?? "",
+    durationMs: row.duration_ms ?? 0,
+    totalMinutesListened: row.total_minutes_listened ?? 0,
+    playCount: row.play_count ?? 0,
+    repeatCount: row.repeat_count ?? 0,
+    currentlyListening: Boolean(row.currently_listening),
+    lastPlayedAt: row.last_played_at ?? "",
+    rating: row.rating ?? 0,
+    review: row.review ?? "",
+    notes: row.notes ?? "",
+    dateAdded: row.date_added ?? new Date().toISOString(),
+  };
+}
+
+function mapSongToInsertRow(song: Song, userId: string) {
+  return {
+    id: song.id,
+    user_id: userId,
+    title: song.title,
+    artist: song.artist,
+    album: song.album ?? "",
+    spotify_id: song.spotifyId ?? "",
+    cover_url: song.coverUrl ?? "",
+    spotify_url: song.spotifyUrl ?? "",
+    preview_url: song.previewUrl ?? "",
+    duration_ms: Math.max(song.durationMs ?? 0, 0),
+    total_minutes_listened: Math.max(song.totalMinutesListened ?? 0, 0),
+    play_count: Math.max(song.playCount ?? 0, 0),
+    repeat_count: Math.max(song.repeatCount ?? 0, 0),
+    currently_listening: Boolean(song.currentlyListening),
+    last_played_at: song.lastPlayedAt || null,
+    rating: Math.max(Math.min(song.rating ?? 0, 5), 0),
+    review: song.review ?? "",
+    notes: song.notes ?? "",
+    date_added: song.dateAdded || new Date().toISOString(),
+  };
+}
+
+function songsEqual(a: Song, b: Song) {
+  return (
+    a.title === b.title &&
+    a.artist === b.artist &&
+    (a.album ?? "") === (b.album ?? "") &&
+    (a.spotifyId ?? "") === (b.spotifyId ?? "") &&
+    (a.coverUrl ?? "") === (b.coverUrl ?? "") &&
+    (a.spotifyUrl ?? "") === (b.spotifyUrl ?? "") &&
+    (a.previewUrl ?? "") === (b.previewUrl ?? "") &&
+    (a.durationMs ?? 0) === (b.durationMs ?? 0) &&
+    (a.totalMinutesListened ?? 0) === (b.totalMinutesListened ?? 0) &&
+    (a.playCount ?? 0) === (b.playCount ?? 0) &&
+    (a.repeatCount ?? 0) === (b.repeatCount ?? 0) &&
+    Boolean(a.currentlyListening) === Boolean(b.currentlyListening) &&
+    (a.lastPlayedAt ?? "") === (b.lastPlayedAt ?? "") &&
+    (a.rating ?? 0) === (b.rating ?? 0) &&
+    (a.review ?? "") === (b.review ?? "") &&
+    (a.notes ?? "") === (b.notes ?? "") &&
+    a.dateAdded === b.dateAdded
+  );
+}
+
+async function getCurrentUserId() {
+  if (!supabase) {
+    return null;
+  }
+
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+    console.error("Unable to resolve Supabase user", error.message);
+    return null;
+  }
+
+  return data.user?.id ?? null;
+}
+
+async function fetchSongsFromDatabase(userId: string): Promise<Song[]> {
+  if (!supabase) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("songs")
+    .select("*")
+    .eq("user_id", userId)
+    .order("date_added", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data ?? []) as SongRow[]).map((row) => mapSongRowToSong(row));
+}
+
+async function migrateSongsToDatabase(userId: string, songs: Song[]) {
+  if (!supabase || songs.length === 0) {
+    return;
+  }
+
+  const rows = songs.map((song) => mapSongToInsertRow(song, userId));
+  const { error } = await supabase.from("songs").upsert(rows, { onConflict: "id" });
+  if (error) {
+    throw error;
+  }
+}
+
+async function syncSongsDiffToDatabase(userId: string, previousSongs: Song[], nextSongs: Song[]) {
+  if (!supabase) {
+    return;
+  }
+
+  const previousById = new Map(previousSongs.map((song) => [song.id, song]));
+  const nextById = new Map(nextSongs.map((song) => [song.id, song]));
+
+  const removedIds = [...previousById.keys()].filter((id) => !nextById.has(id));
+  const changedSongs = nextSongs.filter((song) => {
+    const previous = previousById.get(song.id);
+    if (!previous) {
+      return true;
+    }
+    return !songsEqual(previous, song);
+  });
+
+  if (removedIds.length > 0) {
+    const { error: deleteError } = await supabase
+      .from("songs")
+      .delete()
+      .eq("user_id", userId)
+      .in("id", removedIds);
+    if (deleteError) {
+      throw deleteError;
+    }
+  }
+
+  if (changedSongs.length > 0) {
+    const rows = changedSongs.map((song) => mapSongToInsertRow(song, userId));
+    const { error: upsertError } = await supabase.from("songs").upsert(rows, { onConflict: "id" });
+    if (upsertError) {
+      throw upsertError;
+    }
+  }
+}
+
 export function useSongs() {
   const [songs, setSongs] = useState<Song[]>(loadSongs);
+  const [dbUserId, setDbUserId] = useState<string | null>(null);
+  const [dbHydrated, setDbHydrated] = useState(false);
+  const previousSongsRef = useRef<Song[] | null>(null);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      return;
+    }
+
+    let isActive = true;
+
+    const hydrateUser = async () => {
+      const userId = await getCurrentUserId();
+      if (isActive) {
+        setDbUserId(userId);
+      }
+    };
+
+    void hydrateUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isActive) {
+        return;
+      }
+
+      setDbUserId(session?.user?.id ?? null);
+      if (!session?.user?.id) {
+        setDbHydrated(false);
+        previousSongsRef.current = null;
+      }
+    });
+
+    return () => {
+      isActive = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !dbUserId) {
+      return;
+    }
+
+    let isActive = true;
+    previousSongsRef.current = null;
+
+    const loadFromDatabase = async () => {
+      try {
+        const remoteSongs = await fetchSongsFromDatabase(dbUserId);
+        if (!isActive) {
+          return;
+        }
+
+        const migrationFlagKey = `${MIGRATION_FLAG_PREFIX}:${dbUserId}`;
+        const isMigrated = localStorage.getItem(migrationFlagKey) === "1";
+
+        if (remoteSongs.length === 0 && !isMigrated) {
+          const localSongs = loadSongs();
+          if (localSongs.length > 0) {
+            await migrateSongsToDatabase(dbUserId, localSongs);
+            if (!isActive) {
+              return;
+            }
+            setSongs(localSongs);
+          } else {
+            setSongs([]);
+          }
+          localStorage.setItem(migrationFlagKey, "1");
+        } else {
+          setSongs(remoteSongs);
+          localStorage.setItem(migrationFlagKey, "1");
+        }
+
+        setDbHydrated(true);
+      } catch (error) {
+        console.error("Failed to load songs from database", error);
+      }
+    };
+
+    void loadFromDatabase();
+
+    return () => {
+      isActive = false;
+    };
+  }, [dbUserId]);
 
   useEffect(() => {
     saveSongs(songs);
   }, [songs]);
+
+  useEffect(() => {
+    if (!supabase || !dbUserId || !dbHydrated) {
+      return;
+    }
+
+    const previousSongs = previousSongsRef.current;
+    if (!previousSongs) {
+      previousSongsRef.current = songs;
+      return;
+    }
+
+    previousSongsRef.current = songs;
+
+    void syncSongsDiffToDatabase(dbUserId, previousSongs, songs).catch((error) => {
+      console.error("Failed to sync songs diff to database", error);
+    });
+  }, [dbHydrated, dbUserId, songs]);
 
   const addSong = useCallback((song: NewSongInput) => {
     const newSong: Song = {
@@ -108,7 +387,7 @@ export function useSongs() {
       repeatCount: 0,
       currentlyListening: false,
       rating: 0,
-      review: '',
+      review: "",
       dateAdded: new Date().toISOString(),
     };
 
@@ -117,7 +396,7 @@ export function useSongs() {
   }, []);
 
   const updateSong = useCallback((id: string, updates: Partial<Song>) => {
-    setSongs((prev) => prev.map((song) => (song.id === id ? { ...song, ...updates } : song)));
+    setSongs((prev) => prev.map((song) => (song.id === id ? normalizeSong({ ...song, ...updates }) : song)));
   }, []);
 
   const deleteSong = useCallback((id: string) => {
@@ -135,7 +414,7 @@ export function useSongs() {
         return (
           song.title.toLowerCase().includes(query) ||
           song.artist.toLowerCase().includes(query) ||
-          (song.album || '').toLowerCase().includes(query)
+          (song.album || "").toLowerCase().includes(query)
         );
       });
     },
@@ -184,8 +463,7 @@ export function useSongs() {
             return true;
           }
           return (
-            song.title.trim().toLowerCase() === normalizedTitle &&
-            song.artist.trim().toLowerCase() === normalizedArtist
+            song.title.trim().toLowerCase() === normalizedTitle && song.artist.trim().toLowerCase() === normalizedArtist
           );
         });
 
@@ -218,10 +496,10 @@ export function useSongs() {
           playCount: 0,
           repeatCount: 0,
           currentlyListening: false,
-          lastPlayedAt: '',
+          lastPlayedAt: "",
           rating: 0,
-          review: '',
-          notes: '',
+          review: "",
+          notes: "",
           dateAdded: new Date().toISOString(),
         });
       });
@@ -308,3 +586,4 @@ export function useSongs() {
     markCurrentlyPlayingBySpotifyId,
   };
 }
+
