@@ -580,6 +580,8 @@ export default function Profile() {
     navigate(`/profile/${reader.id}`);
   };
 
+  const unfollowedReaders = discoverProfiles.filter((reader) => !followingIds.includes(reader.id)).slice(0, 2);
+
   return (
     <div className="min-h-screen bg-[#f8f7f4] dark:bg-background transition-colors duration-500 overflow-x-hidden">
       <Navbar />
@@ -731,7 +733,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {isSupabaseConfigured && (
+        {isSupabaseConfigured && unfollowedReaders.length > 0 && (
           <section className="mx-auto mb-10 w-full max-w-4xl space-y-3">
             <div className="flex items-center justify-between">
               <p className="section-label">Readers</p>
@@ -750,57 +752,43 @@ export default function Profile() {
               </p>
             ) : (
               <div className="space-y-4">
-                {discoverProfiles.length === 0 ? (
-                  <p className="rounded-xl border border-border bg-background/50 px-4 py-3 text-sm text-muted-foreground">
-                    No other reader profiles found yet.
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    {discoverProfiles.map((reader) => {
-                      const isFollowing = followingIds.includes(reader.id);
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {unfollowedReaders.map((reader) => (
+                    <article
+                      key={reader.id}
+                      className="flex items-center justify-between rounded-xl border border-border bg-background/60 px-4 py-3"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openReaderProfile(reader)}
+                        className="flex min-w-0 items-center gap-3 text-left"
+                      >
+                        <div className="h-10 w-10 overflow-hidden rounded-full border border-border bg-muted">
+                          {reader.avatarUrl ? (
+                            <img src={reader.avatarUrl} alt={`${reader.name}'s avatar`} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="flex h-full w-full items-center justify-center font-serif text-base text-foreground">
+                              {reader.name.charAt(0)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-serif text-lg">{reader.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">{reader.bio}</p>
+                        </div>
+                      </button>
 
-                      return (
-                        <article
-                          key={reader.id}
-                          className="flex items-center justify-between rounded-xl border border-border bg-background/60 px-4 py-3"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => openReaderProfile(reader)}
-                            className="flex min-w-0 items-center gap-3 text-left"
-                          >
-                            <div className="h-10 w-10 overflow-hidden rounded-full border border-border bg-muted">
-                              {reader.avatarUrl ? (
-                                <img src={reader.avatarUrl} alt={`${reader.name}'s avatar`} className="h-full w-full object-cover" />
-                              ) : (
-                                <span className="flex h-full w-full items-center justify-center font-serif text-base text-foreground">
-                                  {reader.name.charAt(0)}
-                                </span>
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="truncate font-serif text-lg">{reader.name}</p>
-                              <p className="truncate text-xs text-muted-foreground">{reader.bio}</p>
-                            </div>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => void toggleFollow(reader.id)}
-                            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors ${
-                              isFollowing
-                                ? 'border-border bg-background text-muted-foreground hover:text-foreground'
-                                : 'border-foreground bg-foreground text-background hover:opacity-90'
-                            }`}
-                          >
-                            {isFollowing ? <UserCheck className="h-3.5 w-3.5" /> : <UserPlus className="h-3.5 w-3.5" />}
-                            {isFollowing ? 'Following' : 'Follow'}
-                          </button>
-                        </article>
-                      );
-                    })}
-                  </div>
-                )}
+                      <button
+                        type="button"
+                        onClick={() => void toggleFollow(reader.id)}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-foreground bg-foreground px-3 py-1.5 text-xs text-background transition-colors hover:opacity-90"
+                      >
+                        <UserPlus className="h-3.5 w-3.5" />
+                        Follow
+                      </button>
+                    </article>
+                  ))}
+                </div>
               </div>
             )}
           </section>
