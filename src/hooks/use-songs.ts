@@ -6,6 +6,8 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 const STORAGE_KEY = "fragments-songs";
 const LEGACY_STORAGE_KEYS = ["cozy-song-journal-songs", "fragments-tracks"];
 const MIGRATION_FLAG_PREFIX = "fragments-songs-migrated";
+const LEGACY_OWNER_KEY = "fragments-songs-owner";
+const LAST_AUTH_USER_KEY = "fragments-last-auth-user";
 
 interface SongRow {
   id: string;
@@ -79,15 +81,23 @@ function normalizeSong(value: unknown): Song {
   };
 }
 
-function loadSongs(): Song[] {
+function getStorageKey(userId?: string | null) {
+  return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
+}
+
+function loadSongsFromStorage(storageKey: string, legacyKeys?: string[]): Song[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (raw) {
       const parsed = JSON.parse(raw) as unknown;
       return Array.isArray(parsed) ? parsed.map((song) => normalizeSong(song)) : [];
     }
 
-    for (const legacyKey of LEGACY_STORAGE_KEYS) {
+    if (!legacyKeys) {
+      return [];
+    }
+
+    for (const legacyKey of legacyKeys) {
       const legacyRaw = localStorage.getItem(legacyKey);
       if (!legacyRaw) {
         continue;
@@ -105,8 +115,29 @@ function loadSongs(): Song[] {
   }
 }
 
-function saveSongs(songs: Song[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
+function saveSongs(songs: Song[], storageKey: string) {
+  localStorage.setItem(storageKey, JSON.stringify(songs));
+}
+
+function maybeSeedScopedStorage(userId: string) {
+  const scopedKey = getStorageKey(userId);
+  if (localStorage.getItem(scopedKey)) {
+    return;
+  }
+
+  const legacyOwner = localStorage.getItem(LEGACY_OWNER_KEY);
+  const lastAuthUser = localStorage.getItem(LAST_AUTH_USER_KEY);
+  if ((legacyOwner && legacyOwner !== userId) || (lastAuthUser && lastAuthUser !== userId)) {
+    return;
+  }
+
+  const legacySongs = loadSongsFromStorage(STORAGE_KEY, LEGACY_STORAGE_KEYS);
+  if (legacySongs.length === 0) {
+    return;
+  }
+
+  localStorage.setItem(scopedKey, JSON.stringify(legacySongs));
+  localStorage.setItem(LEGACY_OWNER_KEY, userId);
 }
 
 function calculateMinutesFromDuration(song: Song) {
@@ -267,7 +298,9 @@ async function syncSongsDiffToDatabase(userId: string, previousSongs: Song[], ne
 }
 
 export function useSongs() {
-  const [songs, setSongs] = useState<Song[]>(loadSongs);
+  const [songs, setSongs] = useState<Song[]>(() =>
+    isSupabaseConfigured ? [] : loadSongsFromStorage(STORAGE_KEY, LEGACY_STORAGE_KEYS)
+  );
   const [dbUserId, setDbUserId] = useState<string | null>(null);
   const [dbHydrated, setDbHydrated] = useState(false);
   const previousSongsRef = useRef<Song[] | null>(null);
@@ -283,6 +316,9 @@ export function useSongs() {
       const userId = await getCurrentUserId();
       if (isActive) {
         setDbUserId(userId);
+        if (userId) {
+          localStorage.setItem(LAST_AUTH_USER_KEY, userId);
+        }
       }
     };
 
@@ -299,6 +335,9 @@ export function useSongs() {
       if (!session?.user?.id) {
         setDbHydrated(false);
         previousSongsRef.current = null;
+        setSongs([]);
+      } else {
+        localStorage.setItem(LAST_AUTH_USER_KEY, session.user.id);
       }
     });
 
@@ -315,6 +354,8 @@ export function useSongs() {
 
     let isActive = true;
     previousSongsRef.current = null;
+    maybeSeedScopedStorage(dbUserId);
+    setSongs(loadSongsFromStorage(getStorageKey(dbUserId)));
 
     const loadFromDatabase = async () => {
       try {
@@ -327,7 +368,7 @@ export function useSongs() {
         const isMigrated = localStorage.getItem(migrationFlagKey) === "1";
 
         if (remoteSongs.length === 0 && !isMigrated) {
-          const localSongs = loadSongs();
+          const localSongs = loadSongsFromStorage(getStorageKey(dbUserId));
           if (localSongs.length > 0) {
             await migrateSongsToDatabase(dbUserId, localSongs);
             if (!isActive) {
@@ -357,8 +398,13 @@ export function useSongs() {
   }, [dbUserId]);
 
   useEffect(() => {
-    saveSongs(songs);
-  }, [songs]);
+    if (isSupabaseConfigured && !dbUserId) {
+      return;
+    }
+
+    const storageKey = getStorageKey(dbUserId);
+    saveSongs(songs, storageKey);
+  }, [dbUserId, songs]);
 
   useEffect(() => {
     if (!supabase || !dbUserId || !dbHydrated) {
@@ -586,4 +632,3 @@ export function useSongs() {
     markCurrentlyPlayingBySpotifyId,
   };
 }
-

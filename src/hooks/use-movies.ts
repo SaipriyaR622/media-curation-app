@@ -5,6 +5,8 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 const STORAGE_KEY = "fragments-movies";
 const LEGACY_STORAGE_KEY = "my-movie-archive";
 const MIGRATION_FLAG_PREFIX = "fragments-movies-migrated";
+const LEGACY_OWNER_KEY = "fragments-movies-owner";
+const LAST_AUTH_USER_KEY = "fragments-last-auth-user";
 
 const today = () => new Date().toISOString().split("T")[0];
 
@@ -81,9 +83,13 @@ function normalizeMovie(value: unknown): Movie {
   };
 }
 
-function loadMovies(): Movie[] {
+function getStorageKey(userId?: string | null) {
+  return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
+}
+
+function loadMoviesFromStorage(storageKey: string, legacyKey?: string): Movie[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey) ?? (legacyKey ? localStorage.getItem(legacyKey) : null);
     if (!raw) {
       return [];
     }
@@ -99,8 +105,29 @@ function loadMovies(): Movie[] {
   }
 }
 
-function saveMovies(movies: Movie[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(movies));
+function saveMovies(movies: Movie[], storageKey: string) {
+  localStorage.setItem(storageKey, JSON.stringify(movies));
+}
+
+function maybeSeedScopedStorage(userId: string) {
+  const scopedKey = getStorageKey(userId);
+  if (localStorage.getItem(scopedKey)) {
+    return;
+  }
+
+  const legacyOwner = localStorage.getItem(LEGACY_OWNER_KEY);
+  const lastAuthUser = localStorage.getItem(LAST_AUTH_USER_KEY);
+  if ((legacyOwner && legacyOwner !== userId) || (lastAuthUser && lastAuthUser !== userId)) {
+    return;
+  }
+
+  const legacyMovies = loadMoviesFromStorage(STORAGE_KEY, LEGACY_STORAGE_KEY);
+  if (legacyMovies.length === 0) {
+    return;
+  }
+
+  localStorage.setItem(scopedKey, JSON.stringify(legacyMovies));
+  localStorage.setItem(LEGACY_OWNER_KEY, userId);
 }
 
 function toDateOnly(value: string | undefined) {
@@ -297,7 +324,7 @@ async function replaceDiaryEntriesInDatabase(userId: string, movieId: string, di
 }
 
 export function useMovies() {
-  const [movies, setMovies] = useState<Movie[]>(loadMovies);
+  const [movies, setMovies] = useState<Movie[]>(() => (isSupabaseConfigured ? [] : loadMoviesFromStorage(STORAGE_KEY, LEGACY_STORAGE_KEY)));
   const [dbUserId, setDbUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -311,6 +338,9 @@ export function useMovies() {
       const userId = await getCurrentUserId();
       if (isActive) {
         setDbUserId(userId);
+        if (userId) {
+          localStorage.setItem(LAST_AUTH_USER_KEY, userId);
+        }
       }
     };
 
@@ -321,6 +351,12 @@ export function useMovies() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (isActive) {
         setDbUserId(session?.user?.id ?? null);
+        if (!session?.user?.id) {
+          setMovies([]);
+        }
+        if (session?.user?.id) {
+          localStorage.setItem(LAST_AUTH_USER_KEY, session.user.id);
+        }
       }
     });
 
@@ -336,6 +372,8 @@ export function useMovies() {
     }
 
     let isActive = true;
+    maybeSeedScopedStorage(dbUserId);
+    setMovies(loadMoviesFromStorage(getStorageKey(dbUserId)));
 
     const loadFromDatabase = async () => {
       try {
@@ -348,7 +386,7 @@ export function useMovies() {
         const isMigrated = localStorage.getItem(migrationFlagKey) === "1";
 
         if (remoteMovies.length === 0 && !isMigrated) {
-          const localMovies = loadMovies();
+          const localMovies = loadMoviesFromStorage(getStorageKey(dbUserId));
           if (localMovies.length > 0) {
             await migrateMoviesToDatabase(dbUserId, localMovies);
             if (!isActive) {
@@ -377,8 +415,13 @@ export function useMovies() {
   }, [dbUserId]);
 
   useEffect(() => {
-    saveMovies(movies);
-  }, [movies]);
+    if (isSupabaseConfigured && !dbUserId) {
+      return;
+    }
+
+    const storageKey = getStorageKey(dbUserId);
+    saveMovies(movies, storageKey);
+  }, [dbUserId, movies]);
 
   const addMovie = useCallback(
     (movie: NewMovieInput) => {
@@ -587,4 +630,3 @@ export function useMovies() {
     removeDiaryEntry,
   };
 }
-

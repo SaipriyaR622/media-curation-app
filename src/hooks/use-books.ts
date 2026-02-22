@@ -5,6 +5,8 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 const STORAGE_KEY = "fragments-books";
 const LEGACY_STORAGE_KEY = "cozy-book-tracker-books";
 const MIGRATION_FLAG_PREFIX = "fragments-books-migrated";
+const LEGACY_OWNER_KEY = "fragments-books-owner";
+const LAST_AUTH_USER_KEY = "fragments-last-auth-user";
 
 const today = () => new Date().toISOString().split("T")[0];
 
@@ -88,9 +90,13 @@ function normalizeBook(value: unknown): Book {
   };
 }
 
-function loadBooks(): Book[] {
+function getStorageKey(userId?: string | null) {
+  return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
+}
+
+function loadBooksFromStorage(storageKey: string, legacyKey?: string): Book[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey) ?? (legacyKey ? localStorage.getItem(legacyKey) : null);
     if (!raw) {
       return [];
     }
@@ -106,8 +112,29 @@ function loadBooks(): Book[] {
   }
 }
 
-function saveBooks(books: Book[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
+function saveBooks(books: Book[], storageKey: string) {
+  localStorage.setItem(storageKey, JSON.stringify(books));
+}
+
+function maybeSeedScopedStorage(userId: string) {
+  const scopedKey = getStorageKey(userId);
+  if (localStorage.getItem(scopedKey)) {
+    return;
+  }
+
+  const legacyOwner = localStorage.getItem(LEGACY_OWNER_KEY);
+  const lastAuthUser = localStorage.getItem(LAST_AUTH_USER_KEY);
+  if ((legacyOwner && legacyOwner !== userId) || (lastAuthUser && lastAuthUser !== userId)) {
+    return;
+  }
+
+  const legacyBooks = loadBooksFromStorage(STORAGE_KEY, LEGACY_STORAGE_KEY);
+  if (legacyBooks.length === 0) {
+    return;
+  }
+
+  localStorage.setItem(scopedKey, JSON.stringify(legacyBooks));
+  localStorage.setItem(LEGACY_OWNER_KEY, userId);
 }
 
 function toDateOnly(value: string | undefined) {
@@ -316,7 +343,7 @@ async function replaceDiaryEntriesInDatabase(userId: string, bookId: string, dia
 }
 
 export function useBooks() {
-  const [books, setBooks] = useState<Book[]>(loadBooks);
+  const [books, setBooks] = useState<Book[]>(() => (isSupabaseConfigured ? [] : loadBooksFromStorage(STORAGE_KEY, LEGACY_STORAGE_KEY)));
   const [dbUserId, setDbUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -330,6 +357,9 @@ export function useBooks() {
       const userId = await getCurrentUserId();
       if (isActive) {
         setDbUserId(userId);
+        if (userId) {
+          localStorage.setItem(LAST_AUTH_USER_KEY, userId);
+        }
       }
     };
 
@@ -340,6 +370,12 @@ export function useBooks() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (isActive) {
         setDbUserId(session?.user?.id ?? null);
+        if (!session?.user?.id) {
+          setBooks([]);
+        }
+        if (session?.user?.id) {
+          localStorage.setItem(LAST_AUTH_USER_KEY, session.user.id);
+        }
       }
     });
 
@@ -355,6 +391,8 @@ export function useBooks() {
     }
 
     let isActive = true;
+    maybeSeedScopedStorage(dbUserId);
+    setBooks(loadBooksFromStorage(getStorageKey(dbUserId)));
 
     const loadFromDatabase = async () => {
       try {
@@ -367,7 +405,7 @@ export function useBooks() {
         const isMigrated = localStorage.getItem(migrationFlagKey) === "1";
 
         if (remoteBooks.length === 0 && !isMigrated) {
-          const localBooks = loadBooks();
+          const localBooks = loadBooksFromStorage(getStorageKey(dbUserId));
           if (localBooks.length > 0) {
             await migrateBooksToDatabase(dbUserId, localBooks);
             if (!isActive) {
@@ -396,8 +434,13 @@ export function useBooks() {
   }, [dbUserId]);
 
   useEffect(() => {
-    saveBooks(books);
-  }, [books]);
+    if (isSupabaseConfigured && !dbUserId) {
+      return;
+    }
+
+    const storageKey = getStorageKey(dbUserId);
+    saveBooks(books, storageKey);
+  }, [books, dbUserId]);
 
   const addBook = useCallback(
     (

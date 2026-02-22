@@ -41,9 +41,12 @@ interface UserSnapshot {
   avatarUrl: string;
 }
 
-const BOOK_STORAGE_KEYS = ['fragments-books', 'cozy-book-tracker-books'];
-const MOVIE_STORAGE_KEYS = ['fragments-movies', 'my-movie-archive'];
-const SONG_STORAGE_KEYS = ['fragments-songs', 'cozy-song-journal-songs', 'fragments-tracks'];
+const BOOK_STORAGE_BASE_KEY = 'fragments-books';
+const MOVIE_STORAGE_BASE_KEY = 'fragments-movies';
+const SONG_STORAGE_BASE_KEY = 'fragments-songs';
+const BOOK_LEGACY_KEYS = ['cozy-book-tracker-books'];
+const MOVIE_LEGACY_KEYS = ['my-movie-archive'];
+const SONG_LEGACY_KEYS = ['cozy-song-journal-songs', 'fragments-tracks'];
 
 function readStorageArray(keys: string[]): unknown[] {
   if (typeof window === 'undefined') {
@@ -71,8 +74,8 @@ function readStorageArray(keys: string[]): unknown[] {
   return merged;
 }
 
-function loadBooksSnapshot(): BookSnapshot[] {
-  const entries = readStorageArray(BOOK_STORAGE_KEYS);
+function loadBooksSnapshot(keys: string[]): BookSnapshot[] {
+  const entries = readStorageArray(keys);
 
   return entries
     .map((entry) => {
@@ -86,8 +89,8 @@ function loadBooksSnapshot(): BookSnapshot[] {
     .filter((book) => book.id && book.title);
 }
 
-function loadMoviesSnapshot(): MovieSnapshot[] {
-  const entries = readStorageArray(MOVIE_STORAGE_KEYS);
+function loadMoviesSnapshot(keys: string[]): MovieSnapshot[] {
+  const entries = readStorageArray(keys);
 
   return entries
     .map((entry) => {
@@ -102,8 +105,8 @@ function loadMoviesSnapshot(): MovieSnapshot[] {
     .filter((movie) => movie.id && movie.title);
 }
 
-function loadSongsSnapshot(): SongSnapshot[] {
-  const entries = readStorageArray(SONG_STORAGE_KEYS);
+function loadSongsSnapshot(keys: string[]): SongSnapshot[] {
+  const entries = readStorageArray(keys);
 
   return entries
     .map((entry) => {
@@ -156,14 +159,28 @@ export function GlobalSearchPalette() {
   const [books, setBooks] = useState<BookSnapshot[]>([]);
   const [movies, setMovies] = useState<MovieSnapshot[]>([]);
   const [songs, setSongs] = useState<SongSnapshot[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [users, setUsers] = useState<UserSnapshot[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
 
+  const bookKeys = useMemo(
+    () => (currentUserId ? [`${BOOK_STORAGE_BASE_KEY}:${currentUserId}`] : [BOOK_STORAGE_BASE_KEY, ...BOOK_LEGACY_KEYS]),
+    [currentUserId]
+  );
+  const movieKeys = useMemo(
+    () => (currentUserId ? [`${MOVIE_STORAGE_BASE_KEY}:${currentUserId}`] : [MOVIE_STORAGE_BASE_KEY, ...MOVIE_LEGACY_KEYS]),
+    [currentUserId]
+  );
+  const songKeys = useMemo(
+    () => (currentUserId ? [`${SONG_STORAGE_BASE_KEY}:${currentUserId}`] : [SONG_STORAGE_BASE_KEY, ...SONG_LEGACY_KEYS]),
+    [currentUserId]
+  );
+
   const refreshSnapshots = useCallback(() => {
-    setBooks(loadBooksSnapshot());
-    setMovies(loadMoviesSnapshot());
-    setSongs(loadSongsSnapshot());
-  }, []);
+    setBooks(loadBooksSnapshot(bookKeys));
+    setMovies(loadMoviesSnapshot(movieKeys));
+    setSongs(loadSongsSnapshot(songKeys));
+  }, [bookKeys, movieKeys, songKeys]);
 
   const searchUsers = useCallback(async (term: string) => {
     if (!isSupabaseConfigured || !supabase) {
@@ -211,6 +228,36 @@ export function GlobalSearchPalette() {
       refreshSnapshots();
     }
   }, [location.key, open, refreshSnapshots]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      return;
+    }
+
+    let isActive = true;
+
+    const hydrateUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (isActive) {
+        setCurrentUserId(data.user?.id ?? null);
+      }
+    };
+
+    void hydrateUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (isActive) {
+        setCurrentUserId(session?.user?.id ?? null);
+      }
+    });
+
+    return () => {
+      isActive = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) {
