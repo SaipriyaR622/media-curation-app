@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 import Movies from "./pages/Movies";
 import Diary from "./pages/Diary";
 import Songs from "./pages/Songs";
+import PublicProfile from "./pages/PublicProfile";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 
 const queryClient = new QueryClient();
@@ -208,6 +209,14 @@ const App = () => {
               element={
                 <ProtectedRoute authReady={authReady} isAuthenticated={isAuthenticated}>
                   <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile/:userId"
+              element={
+                <ProtectedRoute authReady={authReady} isAuthenticated={isAuthenticated}>
+                  <PublicProfile />
                 </ProtectedRoute>
               }
             />

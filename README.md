@@ -30,6 +30,8 @@ The database schema is managed via Postgres. To initialize the archive, run the 
 
 003_profile_follows.sql (Follow relationships + policies)
 
+004_public_profile_views.sql (Public canvas + diary read policies)
+
 3. Installation
 Bash
 # Install dependencies

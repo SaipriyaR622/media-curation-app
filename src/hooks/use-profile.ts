@@ -23,10 +23,11 @@ interface DirectoryProfileRow {
 }
 
 interface FollowEdgeRow {
-  following_id: string;
+  following_id?: string;
+  follower_id?: string;
 }
 
-interface FollowableProfile {
+export interface FollowableProfile {
   id: string;
   name: string;
   bio: string;
@@ -119,14 +120,34 @@ function isMissingFollowsTableError(error: unknown) {
   return code === MISSING_FOLLOWS_TABLE_CODE || /profile_follows/i.test(message);
 }
 
+async function loadProfilesByIds(ids: string[]) {
+  if (!supabase || ids.length === 0) {
+    return [] as FollowableProfile[];
+  }
+
+  const { data, error } = await supabase.from("profiles").select("id,name,bio,avatar_url").in("id", ids).order("name", {
+    ascending: true,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map((entry) => mapDirectoryProfile(entry as DirectoryProfileRow));
+}
+
 export function useProfile() {
   const [profile, setProfile] = useState<Profile>(loadProfile);
   const [dbUserId, setDbUserId] = useState<string | null>(null);
   const [discoverProfiles, setDiscoverProfiles] = useState<FollowableProfile[]>([]);
   const [followingIds, setFollowingIds] = useState<string[]>([]);
+  const [followersProfiles, setFollowersProfiles] = useState<FollowableProfile[]>([]);
+  const [followingProfiles, setFollowingProfiles] = useState<FollowableProfile[]>([]);
   const [socialReady, setSocialReady] = useState(!isSupabaseConfigured);
   const [socialError, setSocialError] = useState<string>("");
   const [followsTableAvailable, setFollowsTableAvailable] = useState(true);
+  const [userSearchResults, setUserSearchResults] = useState<FollowableProfile[]>([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
 
   const refreshSocialGraph = useCallback(
     async (userId: string) => {
@@ -136,16 +157,15 @@ export function useProfile() {
 
       setSocialError("");
 
-      const [directoryResult, followingResult, followersCountResult, followingCountResult] = await Promise.all([
+      const [directoryResult, followingResult, followerResult] = await Promise.all([
         supabase
           .from("profiles")
           .select("id,name,bio,avatar_url")
           .neq("id", userId)
           .order("name", { ascending: true })
-          .limit(40),
+          .limit(200),
         supabase.from("profile_follows").select("following_id").eq("follower_id", userId),
-        supabase.from("profile_follows").select("follower_id", { count: "exact", head: true }).eq("following_id", userId),
-        supabase.from("profile_follows").select("following_id", { count: "exact", head: true }).eq("follower_id", userId),
+        supabase.from("profile_follows").select("follower_id").eq("following_id", userId),
       ]);
 
       if (directoryResult.error) {
@@ -154,24 +174,32 @@ export function useProfile() {
       if (followingResult.error) {
         throw followingResult.error;
       }
-      if (followersCountResult.error) {
-        throw followersCountResult.error;
-      }
-      if (followingCountResult.error) {
-        throw followingCountResult.error;
+      if (followerResult.error) {
+        throw followerResult.error;
       }
 
+      const nextFollowingIds = (followingResult.data ?? [])
+        .map((edge) => (edge as FollowEdgeRow).following_id ?? "")
+        .filter(Boolean);
+      const followerIds = (followerResult.data ?? [])
+        .map((edge) => (edge as FollowEdgeRow).follower_id ?? "")
+        .filter(Boolean);
+
+      const [nextFollowingProfiles, nextFollowersProfiles] = await Promise.all([
+        loadProfilesByIds(nextFollowingIds),
+        loadProfilesByIds(followerIds),
+      ]);
+
       const mappedProfiles = (directoryResult.data ?? []).map((entry) => mapDirectoryProfile(entry as DirectoryProfileRow));
-      const nextFollowingIds = (followingResult.data ?? []).map((edge) => (edge as FollowEdgeRow).following_id);
-      const followersCount = typeof followersCountResult.count === "number" ? followersCountResult.count : 0;
-      const followingCount = typeof followingCountResult.count === "number" ? followingCountResult.count : 0;
 
       setDiscoverProfiles(mappedProfiles);
       setFollowingIds(nextFollowingIds);
+      setFollowingProfiles(nextFollowingProfiles);
+      setFollowersProfiles(nextFollowersProfiles);
       setProfile((prev) => ({
         ...prev,
-        followers: followersCount,
-        following: followingCount,
+        followers: followerIds.length,
+        following: nextFollowingIds.length,
       }));
     },
     [followsTableAvailable]
@@ -211,6 +239,10 @@ export function useProfile() {
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase || !dbUserId) {
       setSocialReady(true);
+      setFollowersProfiles([]);
+      setFollowingProfiles([]);
+      setFollowingIds([]);
+      setDiscoverProfiles([]);
       return;
     }
 
@@ -257,8 +289,7 @@ export function useProfile() {
             setFollowsTableAvailable(false);
             setSocialError("Follow system is not initialized in the database yet.");
           } else {
-            const message =
-              (socialLoadError as { message?: string } | null)?.message ?? "Unable to load social graph.";
+            const message = (socialLoadError as { message?: string } | null)?.message ?? "Unable to load social graph.";
             setSocialError(message);
           }
         } finally {
@@ -317,20 +348,14 @@ export function useProfile() {
       setSocialError("");
 
       const currentlyFollowing = followingIds.includes(targetUserId);
-      setFollowingIds((prev) =>
-        currentlyFollowing ? prev.filter((entry) => entry !== targetUserId) : [...prev, targetUserId]
-      );
+      setFollowingIds((prev) => (currentlyFollowing ? prev.filter((entry) => entry !== targetUserId) : [...prev, targetUserId]));
       setProfile((prev) => ({
         ...prev,
         following: currentlyFollowing ? Math.max(0, prev.following - 1) : prev.following + 1,
       }));
 
       const mutation = currentlyFollowing
-        ? supabase
-            .from("profile_follows")
-            .delete()
-            .eq("follower_id", dbUserId)
-            .eq("following_id", targetUserId)
+        ? supabase.from("profile_follows").delete().eq("follower_id", dbUserId).eq("following_id", targetUserId)
         : supabase.from("profile_follows").insert({
             follower_id: dbUserId,
             following_id: targetUserId,
@@ -339,9 +364,7 @@ export function useProfile() {
       const { error } = await mutation;
 
       if (error) {
-        setFollowingIds((prev) =>
-          currentlyFollowing ? [...prev, targetUserId] : prev.filter((entry) => entry !== targetUserId)
-        );
+        setFollowingIds((prev) => (currentlyFollowing ? [...prev, targetUserId] : prev.filter((entry) => entry !== targetUserId)));
         setProfile((prev) => ({
           ...prev,
           following: currentlyFollowing ? prev.following + 1 : Math.max(0, prev.following - 1),
@@ -362,15 +385,56 @@ export function useProfile() {
     [dbUserId, followsTableAvailable, followingIds, refreshSocialGraph]
   );
 
+  const searchUsers = useCallback(
+    async (query: string) => {
+      if (!supabase || !dbUserId) {
+        setUserSearchLoading(false);
+        setUserSearchResults([]);
+        return;
+      }
+
+      const trimmedQuery = query.trim();
+      if (!trimmedQuery) {
+        setUserSearchLoading(false);
+        setUserSearchResults([]);
+        return;
+      }
+
+      setUserSearchLoading(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id,name,bio,avatar_url")
+        .neq("id", dbUserId)
+        .ilike("name", `%${trimmedQuery}%`)
+        .order("name", { ascending: true })
+        .limit(20);
+
+      if (error) {
+        setUserSearchLoading(false);
+        throw error;
+      }
+
+      const mapped = (data ?? []).map((entry) => mapDirectoryProfile(entry as DirectoryProfileRow));
+      setUserSearchResults(mapped);
+      setUserSearchLoading(false);
+    },
+    [dbUserId]
+  );
+
   return {
     profile,
     updateProfile,
     currentUserId: dbUserId,
     discoverProfiles,
     followingIds,
+    followersProfiles,
+    followingProfiles,
     socialReady,
     socialError,
     followsTableAvailable,
+    userSearchResults,
+    userSearchLoading,
+    searchUsers,
     toggleFollow,
   };
 }

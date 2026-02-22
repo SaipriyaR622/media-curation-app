@@ -4,9 +4,23 @@ import { motion } from "framer-motion";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
+function normalizeIdentifier(identifier: string) {
+  const trimmed = identifier.trim().toLowerCase();
+  if (!trimmed) {
+    return "";
+  }
+
+  if (trimmed.includes("@")) {
+    return trimmed;
+  }
+
+  const slug = trimmed.replace(/\s+/g, "");
+  return slug ? `${slug}@fragments.local` : "";
+}
+
 export default function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -52,14 +66,20 @@ export default function Login() {
       return;
     }
 
-    if (!email.trim() || !password.trim()) {
-      setErrorMessage("Enter both email and password.");
+    if (!identifier.trim() || !password.trim()) {
+      setErrorMessage("Enter both username and password.");
+      return;
+    }
+
+    const normalizedEmail = normalizeIdentifier(identifier);
+    if (!normalizedEmail) {
+      setErrorMessage("Enter a valid username.");
       return;
     }
 
     setSubmitting(true);
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: normalizedEmail,
       password,
     });
 
@@ -81,14 +101,20 @@ export default function Login() {
       return;
     }
 
-    if (!email.trim() || !password.trim()) {
-      setErrorMessage("Enter both email and password to create an account.");
+    if (!identifier.trim() || !password.trim()) {
+      setErrorMessage("Enter both username and password to create an account.");
+      return;
+    }
+
+    const normalizedEmail = normalizeIdentifier(identifier);
+    if (!normalizedEmail) {
+      setErrorMessage("Enter a valid username.");
       return;
     }
 
     setSubmitting(true);
     const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: normalizedEmail,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/library/books`,
@@ -106,7 +132,7 @@ export default function Login() {
       return;
     }
 
-    setStatusMessage("Account created. Check your email to confirm, then sign in.");
+    setStatusMessage("Account created. You can sign in now.");
     setSubmitting(false);
   };
 
@@ -136,14 +162,14 @@ export default function Login() {
             <form onSubmit={(event) => void handleLogin(event)} className="space-y-10">
               <div className="group relative">
                 <label className="absolute -top-6 left-0 text-[9px] font-bold uppercase tracking-widest text-stone-400">
-                  Email Address
+                  Username
                 </label>
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="Enter your credentials"
+                  value={identifier}
+                  onChange={(event) => setIdentifier(event.target.value)}
+                  placeholder="Enter username"
                   className="w-full border-b border-stone-300 bg-transparent py-2 font-serif text-lg placeholder:text-stone-200 focus:border-stone-800 focus:outline-none transition-colors"
                 />
               </div>
@@ -211,4 +237,3 @@ export default function Login() {
     </div>
   );
 }
-

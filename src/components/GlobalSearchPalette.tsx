@@ -11,6 +11,7 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from '@/components/ui/command';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 interface BookSnapshot {
   id: string;
@@ -31,6 +32,13 @@ interface SongSnapshot {
   artist: string;
   album?: string;
   url?: string;
+}
+
+interface UserSnapshot {
+  id: string;
+  name: string;
+  bio: string;
+  avatarUrl: string;
 }
 
 const BOOK_STORAGE_KEYS = ['fragments-books', 'cozy-book-tracker-books'];
@@ -144,9 +152,12 @@ export function GlobalSearchPalette() {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const [books, setBooks] = useState<BookSnapshot[]>([]);
   const [movies, setMovies] = useState<MovieSnapshot[]>([]);
   const [songs, setSongs] = useState<SongSnapshot[]>([]);
+  const [users, setUsers] = useState<UserSnapshot[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
 
   const refreshSnapshots = useCallback(() => {
     setBooks(loadBooksSnapshot());
@@ -154,11 +165,69 @@ export function GlobalSearchPalette() {
     setSongs(loadSongsSnapshot());
   }, []);
 
+  const searchUsers = useCallback(async (term: string) => {
+    if (!isSupabaseConfigured || !supabase) {
+      setUsers([]);
+      setUsersLoading(false);
+      return;
+    }
+
+    const trimmed = term.trim();
+    if (trimmed.length < 2) {
+      setUsers([]);
+      setUsersLoading(false);
+      return;
+    }
+
+    setUsersLoading(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id,name,bio,avatar_url')
+      .ilike('name', `%${trimmed}%`)
+      .order('name', { ascending: true })
+      .limit(20);
+
+    if (error) {
+      setUsers([]);
+      setUsersLoading(false);
+      return;
+    }
+
+    const mapped = (data ?? []).map((entry) => {
+      const candidate = entry as { id: string; name: string; bio: string; avatar_url: string };
+      return {
+        id: candidate.id,
+        name: candidate.name || 'Reader',
+        bio: candidate.bio || 'reader, annotator, lover of slow burns',
+        avatarUrl: candidate.avatar_url || '',
+      };
+    });
+    setUsers(mapped);
+    setUsersLoading(false);
+  }, []);
+
   useEffect(() => {
     if (open) {
       refreshSnapshots();
     }
   }, [location.key, open, refreshSnapshots]);
+
+  useEffect(() => {
+    if (!open) {
+      setQuery('');
+      setUsers([]);
+      setUsersLoading(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void searchUsers(query);
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [open, query, searchUsers]);
 
   useEffect(() => {
     const handleKeyboardShortcut = (event: KeyboardEvent) => {
@@ -199,7 +268,11 @@ export function GlobalSearchPalette() {
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder="Search books, movies, songs... (Cmd/Ctrl + K)" />
+      <CommandInput
+        value={query}
+        onValueChange={setQuery}
+        placeholder="Search books, movies, songs, users... (Cmd/Ctrl + K)"
+      />
       <CommandList>
         <CommandEmpty>No fragments found.</CommandEmpty>
 
@@ -256,6 +329,40 @@ export function GlobalSearchPalette() {
             Profile
           </CommandItem>
         </CommandGroup>
+
+        {(query.trim().length >= 2 || usersLoading) && <CommandSeparator />}
+
+        {(query.trim().length >= 2 || usersLoading) && (
+          <CommandGroup heading={`Users (${users.length})`}>
+            {usersLoading && (
+              <CommandItem value="Searching users..." disabled>
+                <UserRound className="mr-2 h-4 w-4 text-muted-foreground" />
+                Searching users...
+              </CommandItem>
+            )}
+            {!usersLoading && users.length === 0 && (
+              <CommandItem value="No users found" disabled>
+                <UserRound className="mr-2 h-4 w-4 text-muted-foreground" />
+                No users found.
+              </CommandItem>
+            )}
+            {!usersLoading &&
+              users.map((user) => (
+                <CommandItem
+                  key={`palette-user-${user.id}`}
+                  value={`${user.name} ${user.bio}`}
+                  onSelect={() => {
+                    navigate(`/profile/${user.id}`);
+                    closePalette();
+                  }}
+                >
+                  <UserRound className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <span className="truncate">{user.name}</span>
+                  <CommandShortcut className="truncate max-w-[45%]">{user.bio}</CommandShortcut>
+                </CommandItem>
+              ))}
+          </CommandGroup>
+        )}
 
         {hasMediaResults && <CommandSeparator />}
 

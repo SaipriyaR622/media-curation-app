@@ -2,7 +2,7 @@ import { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { useBooks } from '@/hooks/use-books';
 import { useMovies } from '@/hooks/use-movies';
 import { useSongs } from '@/hooks/use-songs';
-import { useProfile } from '@/hooks/use-profile';
+import { type FollowableProfile, useProfile } from '@/hooks/use-profile';
 import { Navbar } from '@/components/Navbar';
 import { BookCard } from '@/components/BookCard';
 import { BookDetail } from '@/components/BookDetails';
@@ -12,7 +12,8 @@ import { useTheme } from 'next-themes';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { Music2, Pause, Play, Plus, UserCheck, UserPlus, X } from 'lucide-react';
 import { Book, Movie, Song } from '@/lib/types';
-import { isSupabaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { useNavigate } from 'react-router-dom';
 
 type ScrapbookItemKind =
   | 'book'
@@ -65,6 +66,12 @@ interface ScrapbookItem {
 }
 
 type PersistedScrapbookItem = Omit<ScrapbookItem, 'book' | 'movie' | 'song'>;
+
+interface ProfileCanvasRow {
+  user_id: string;
+  items: unknown;
+  updated_at: string;
+}
 
 const SCRAPBOOK_ITEM_KINDS: ScrapbookItemKind[] = [
   'book',
@@ -133,13 +140,17 @@ function normalizePinnedItem(value: unknown): ScrapbookItem | null {
   };
 }
 
-function loadPinnedItems(): ScrapbookItem[] {
+function getCanvasStorageKey(userId?: string | null) {
+  return userId ? `${CANVAS_STORAGE_KEY}:${userId}` : CANVAS_STORAGE_KEY;
+}
+
+function loadPinnedItems(storageKey: string, fallbackKey?: string): ScrapbookItem[] {
   if (typeof window === 'undefined') {
     return [];
   }
 
   try {
-    const raw = localStorage.getItem(CANVAS_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey) ?? (fallbackKey ? localStorage.getItem(fallbackKey) : null);
     if (!raw) {
       return [];
     }
@@ -149,32 +160,47 @@ function loadPinnedItems(): ScrapbookItem[] {
       return [];
     }
 
-    return parsed
-      .map((entry) => normalizePinnedItem(entry))
-      .filter((entry): entry is ScrapbookItem => entry !== null);
+    return normalizePinnedItems(parsed);
   } catch {
     return [];
   }
 }
 
-function savePinnedItems(items: ScrapbookItem[]) {
+function savePinnedItems(items: ScrapbookItem[], storageKey: string) {
   if (typeof window === 'undefined') {
     return;
   }
 
-  const persistedItems: PersistedScrapbookItem[] = items.map(({ book, movie, song, ...entry }) => entry);
-  localStorage.setItem(CANVAS_STORAGE_KEY, JSON.stringify(persistedItems));
+  localStorage.setItem(storageKey, JSON.stringify(toPersistedPinnedItems(items)));
+}
+
+function normalizePinnedItems(value: unknown): ScrapbookItem[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => normalizePinnedItem(entry))
+    .filter((entry): entry is ScrapbookItem => entry !== null);
+}
+
+function toPersistedPinnedItems(items: ScrapbookItem[]): PersistedScrapbookItem[] {
+  return items.map(({ book, movie, song, ...entry }) => entry);
 }
 
 export default function Profile() {
+  const navigate = useNavigate();
   const { books, updateBook } = useBooks();
   const { movies, updateMovie, addDiaryEntry, removeDiaryEntry } = useMovies();
   const { songs, logPlay } = useSongs();
   const {
     profile,
     updateProfile,
+    currentUserId,
     discoverProfiles,
     followingIds,
+    followersProfiles,
+    followingProfiles,
     socialReady,
     socialError,
     followsTableAvailable,
@@ -185,7 +211,10 @@ export default function Profile() {
   const canvasButtonBottom = useTransform(scrollY, [0, 1400], [48, 20]);
   const canvasRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [pinnedItems, setPinnedItems] = useState<ScrapbookItem[]>(loadPinnedItems);
+  const [pinnedItems, setPinnedItems] = useState<ScrapbookItem[]>([]);
+  const [loadedCanvasKey, setLoadedCanvasKey] = useState('');
+  const [isCanvasHydrated, setIsCanvasHydrated] = useState(false);
+  const [activePopover, setActivePopover] = useState<'followers' | 'following' | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('media');
   const [noteDraft, setNoteDraft] = useState('Watch this on a rainy day.');
@@ -198,8 +227,104 @@ export default function Profile() {
   const canvasAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    savePinnedItems(pinnedItems);
-  }, [pinnedItems]);
+    let isActive = true;
+    const scopedKey = getCanvasStorageKey(currentUserId);
+    const legacySharedKey = CANVAS_STORAGE_KEY;
+    const localItems = loadPinnedItems(scopedKey, legacySharedKey);
+
+    setLoadedCanvasKey('');
+    setIsCanvasHydrated(false);
+    setPinnedItems(localItems);
+
+    const hydrateCanvas = async () => {
+      if (!currentUserId || !isSupabaseConfigured || !supabase) {
+        if (isActive) {
+          setLoadedCanvasKey(scopedKey);
+          setIsCanvasHydrated(true);
+        }
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('profile_canvas_items')
+          .select('*')
+          .eq('user_id', currentUserId)
+          .maybeSingle();
+
+        if (!isActive) {
+          return;
+        }
+
+        if (error) {
+          const code = (error as { code?: string }).code;
+          if (code !== '42P01') {
+            throw error;
+          }
+        } else if (data) {
+          const row = data as ProfileCanvasRow;
+          const remoteItems = normalizePinnedItems(row.items);
+          setPinnedItems(remoteItems);
+          savePinnedItems(remoteItems, scopedKey);
+        } else if (localItems.length > 0) {
+          const persistedLocalItems = toPersistedPinnedItems(localItems);
+          await supabase.from('profile_canvas_items').upsert(
+            {
+              user_id: currentUserId,
+              items: persistedLocalItems,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id' }
+          );
+        }
+      } catch (canvasError) {
+        console.error('Failed to hydrate canvas from database', canvasError);
+      } finally {
+        if (isActive) {
+          setLoadedCanvasKey(scopedKey);
+          setIsCanvasHydrated(true);
+        }
+      }
+    };
+
+    void hydrateCanvas();
+
+    return () => {
+      isActive = false;
+    };
+  }, [currentUserId]);
+
+  useEffect(() => {
+    const scopedKey = getCanvasStorageKey(currentUserId);
+    if (!loadedCanvasKey || loadedCanvasKey !== scopedKey) {
+      return;
+    }
+
+    savePinnedItems(pinnedItems, scopedKey);
+  }, [currentUserId, loadedCanvasKey, pinnedItems]);
+
+  useEffect(() => {
+    if (!isCanvasHydrated || !currentUserId || !isSupabaseConfigured || !supabase) {
+      return;
+    }
+
+    const persistedItems = toPersistedPinnedItems(pinnedItems);
+    void supabase
+      .from('profile_canvas_items')
+      .upsert(
+        {
+          user_id: currentUserId,
+          items: persistedItems,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      )
+      .then(({ error }) => {
+        if (error && (error as { code?: string }).code !== '42P01') {
+          console.error('Failed to sync canvas to database', error.message);
+        }
+      });
+  }, [currentUserId, isCanvasHydrated, pinnedItems]);
 
   useEffect(() => {
     return () => {
@@ -451,6 +576,10 @@ export default function Profile() {
     setEmbeddedSpotifyTrackId(null);
   };
 
+  const openReaderProfile = (reader: FollowableProfile) => {
+    navigate(`/profile/${reader.id}`);
+  };
+
   return (
     <div className="min-h-screen bg-[#f8f7f4] dark:bg-background transition-colors duration-500 overflow-x-hidden">
       <Navbar />
@@ -513,13 +642,91 @@ export default function Profile() {
             rows={2}
           />
           <div className="mt-2 grid w-full max-w-sm grid-cols-2 gap-3">
-            <div className="rounded-xl border border-border/70 bg-background/60 px-4 py-3 text-left">
-              <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Followers</span>
-              <p className="mt-1 block w-full font-serif text-2xl leading-none text-foreground">{profile.followers}</p>
+            <div
+              className="relative"
+              onMouseEnter={() => setActivePopover('followers')}
+              onMouseLeave={() => setActivePopover(null)}
+            >
+              <button
+                type="button"
+                onClick={() => setActivePopover(activePopover === 'followers' ? null : 'followers')}
+                className="w-full rounded-xl border border-border/70 bg-background/60 px-4 py-3 text-left transition-colors hover:border-foreground"
+                aria-expanded={activePopover === 'followers'}
+              >
+                <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Followers</span>
+                <p className="mt-1 block w-full font-serif text-2xl leading-none text-foreground">{profile.followers}</p>
+              </button>
+              {activePopover === 'followers' && (
+                <div className="absolute left-0 top-full z-40 mt-2 w-64 rounded-xl border border-border bg-background p-3 shadow-xl">
+                  <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Followers</p>
+                  {followersProfiles.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No followers yet.</p>
+                  ) : (
+                    <div className="max-h-56 space-y-2 overflow-auto pr-1">
+                      {followersProfiles.map((reader) => (
+                        <button
+                          key={`popover-follower-${reader.id}`}
+                          type="button"
+                          onClick={() => openReaderProfile(reader)}
+                          className="flex w-full items-center gap-2 rounded-lg border border-border/70 bg-background/80 px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          <span className="inline-flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-muted">
+                            {reader.avatarUrl ? (
+                              <img src={reader.avatarUrl} alt={`${reader.name}'s avatar`} className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="font-serif text-[10px] text-foreground">{reader.name.charAt(0)}</span>
+                            )}
+                          </span>
+                          <span className="truncate">{reader.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="rounded-xl border border-border/70 bg-background/60 px-4 py-3 text-left">
-              <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Following</span>
-              <p className="mt-1 block w-full font-serif text-2xl leading-none text-foreground">{profile.following}</p>
+            <div
+              className="relative"
+              onMouseEnter={() => setActivePopover('following')}
+              onMouseLeave={() => setActivePopover(null)}
+            >
+              <button
+                type="button"
+                onClick={() => setActivePopover(activePopover === 'following' ? null : 'following')}
+                className="w-full rounded-xl border border-border/70 bg-background/60 px-4 py-3 text-left transition-colors hover:border-foreground"
+                aria-expanded={activePopover === 'following'}
+              >
+                <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Following</span>
+                <p className="mt-1 block w-full font-serif text-2xl leading-none text-foreground">{profile.following}</p>
+              </button>
+              {activePopover === 'following' && (
+                <div className="absolute left-0 top-full z-40 mt-2 w-64 rounded-xl border border-border bg-background p-3 shadow-xl">
+                  <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Following</p>
+                  {followingProfiles.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">You are not following anyone yet.</p>
+                  ) : (
+                    <div className="max-h-56 space-y-2 overflow-auto pr-1">
+                      {followingProfiles.map((reader) => (
+                        <button
+                          key={`popover-following-${reader.id}`}
+                          type="button"
+                          onClick={() => openReaderProfile(reader)}
+                          className="flex w-full items-center gap-2 rounded-lg border border-border/70 bg-background/80 px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          <span className="inline-flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-muted">
+                            {reader.avatarUrl ? (
+                              <img src={reader.avatarUrl} alt={`${reader.name}'s avatar`} className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="font-serif text-[10px] text-foreground">{reader.name.charAt(0)}</span>
+                            )}
+                          </span>
+                          <span className="truncate">{reader.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -541,51 +748,59 @@ export default function Profile() {
               <p className="rounded-xl border border-border bg-background/50 px-4 py-3 text-sm text-muted-foreground">
                 Run the latest migration to enable follow relationships.
               </p>
-            ) : discoverProfiles.length === 0 ? (
-              <p className="rounded-xl border border-border bg-background/50 px-4 py-3 text-sm text-muted-foreground">
-                No other reader profiles found yet.
-              </p>
             ) : (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                {discoverProfiles.map((reader) => {
-                  const isFollowing = followingIds.includes(reader.id);
+              <div className="space-y-4">
+                {discoverProfiles.length === 0 ? (
+                  <p className="rounded-xl border border-border bg-background/50 px-4 py-3 text-sm text-muted-foreground">
+                    No other reader profiles found yet.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {discoverProfiles.map((reader) => {
+                      const isFollowing = followingIds.includes(reader.id);
 
-                  return (
-                    <article
-                      key={reader.id}
-                      className="flex items-center justify-between rounded-xl border border-border bg-background/60 px-4 py-3"
-                    >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="h-10 w-10 overflow-hidden rounded-full border border-border bg-muted">
-                          {reader.avatarUrl ? (
-                            <img src={reader.avatarUrl} alt={`${reader.name}'s avatar`} className="h-full w-full object-cover" />
-                          ) : (
-                            <span className="flex h-full w-full items-center justify-center font-serif text-base text-foreground">
-                              {reader.name.charAt(0)}
-                            </span>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate font-serif text-lg">{reader.name}</p>
-                          <p className="truncate text-xs text-muted-foreground">{reader.bio}</p>
-                        </div>
-                      </div>
+                      return (
+                        <article
+                          key={reader.id}
+                          className="flex items-center justify-between rounded-xl border border-border bg-background/60 px-4 py-3"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => openReaderProfile(reader)}
+                            className="flex min-w-0 items-center gap-3 text-left"
+                          >
+                            <div className="h-10 w-10 overflow-hidden rounded-full border border-border bg-muted">
+                              {reader.avatarUrl ? (
+                                <img src={reader.avatarUrl} alt={`${reader.name}'s avatar`} className="h-full w-full object-cover" />
+                              ) : (
+                                <span className="flex h-full w-full items-center justify-center font-serif text-base text-foreground">
+                                  {reader.name.charAt(0)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate font-serif text-lg">{reader.name}</p>
+                              <p className="truncate text-xs text-muted-foreground">{reader.bio}</p>
+                            </div>
+                          </button>
 
-                      <button
-                        type="button"
-                        onClick={() => void toggleFollow(reader.id)}
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors ${
-                          isFollowing
-                            ? 'border-border bg-background text-muted-foreground hover:text-foreground'
-                            : 'border-foreground bg-foreground text-background hover:opacity-90'
-                        }`}
-                      >
-                        {isFollowing ? <UserCheck className="h-3.5 w-3.5" /> : <UserPlus className="h-3.5 w-3.5" />}
-                        {isFollowing ? 'Following' : 'Follow'}
-                      </button>
-                    </article>
-                  );
-                })}
+                          <button
+                            type="button"
+                            onClick={() => void toggleFollow(reader.id)}
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                              isFollowing
+                                ? 'border-border bg-background text-muted-foreground hover:text-foreground'
+                                : 'border-foreground bg-foreground text-background hover:opacity-90'
+                            }`}
+                          >
+                            {isFollowing ? <UserCheck className="h-3.5 w-3.5" /> : <UserPlus className="h-3.5 w-3.5" />}
+                            {isFollowing ? 'Following' : 'Follow'}
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </section>
