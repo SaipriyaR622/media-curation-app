@@ -209,8 +209,8 @@ export default function Songs() {
             <p className="mt-2 font-serif text-3xl">{stats.albumsTracked}</p>
           </article>
           <article className="rounded border border-border bg-card/30 p-4">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Repeated Songs</p>
-            <p className="mt-2 font-serif text-3xl">{stats.repeatedSongs.length}</p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Tracks</p>
+            <p className="mt-2 font-serif text-3xl">{songs.length}</p>
           </article>
           <article className="rounded border border-border bg-card/30 p-4">
             <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Currently Listening</p>

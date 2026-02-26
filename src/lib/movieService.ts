@@ -16,3 +16,12 @@ export const searchMovies = async (query: string): Promise<TmdbMovieSearchResult
   const data = (await response.json()) as { results?: TmdbMovieSearchResult[] };
   return Array.isArray(data.results) ? data.results : [];
 };
+
+export const getMovieDetails = async (movieId: number): Promise<{ director: string }> => {
+  const response = await fetch(
+    `${BASE_URL}/movie/${movieId}/credits?api_key=${TMDB_API_KEY}`
+  );
+  const data = (await response.json()) as { crew?: Array<{ job: string; name: string }> };
+  const director = data.crew?.find((member) => member.job === 'Director')?.name ?? '';
+  return { director };
+};

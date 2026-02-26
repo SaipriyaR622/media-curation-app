@@ -53,7 +53,7 @@ function normalizeSong(value: unknown): Song {
         : "";
 
   return {
-    id: typeof candidate.id === "string" ? candidate.id : crypto.randomUUID(),
+    id: typeof candidate.id === "string" ? candidate.id : `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     title,
     artist,
     album: typeof candidate.album === "string" ? candidate.album : "",
@@ -427,7 +427,7 @@ export function useSongs() {
   const addSong = useCallback((song: NewSongInput) => {
     const newSong: Song = {
       ...song,
-      id: crypto.randomUUID(),
+      id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       totalMinutesListened: 0,
       playCount: 0,
       repeatCount: 0,
@@ -529,7 +529,7 @@ export function useSongs() {
         }
 
         next.unshift({
-          id: crypto.randomUUID(),
+          id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
           spotifyId: track.spotifyId,
           title: track.title,
           artist: track.artist,
@@ -578,6 +578,9 @@ export function useSongs() {
         }
 
         const song = next[index];
+        const alreadyCounted = song.lastPlayedAt && song.lastPlayedAt >= track.playedAt;
+        if (alreadyCounted) return;
+
         const minutes = track.durationMs > 0 ? Math.max(Math.round(track.durationMs / 60000), 1) : 3;
         const nextPlayCount = song.playCount + 1;
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Search, Loader2 } from 'lucide-react';
-import { TmdbMovieSearchResult, searchMovies } from '@/lib/movieService';
+import { TmdbMovieSearchResult, searchMovies, getMovieDetails } from '@/lib/movieService';
 import { MovieStatus, NewMovieInput } from '@/lib/types';
 
 type MovieFormData = NewMovieInput;
@@ -49,7 +49,7 @@ export default function AddMovieForm({ isOpen, onClose, onAdd }: AddMovieFormPro
     return () => clearTimeout(timer);
   }, [query]);
 
-  const handleSelect = (movie: TmdbMovieSearchResult) => {
+  const handleSelect = async (movie: TmdbMovieSearchResult) => {
     setFormData((prev) => ({
       ...prev,
       title: movie.title,
@@ -59,6 +59,10 @@ export default function AddMovieForm({ isOpen, onClose, onAdd }: AddMovieFormPro
     }));
     setSearchResults([]);
     setQuery(movie.title);
+
+    // Fetch director separately
+    const { director } = await getMovieDetails(movie.id);
+    setFormData((prev) => ({ ...prev, director }));
   };
 
   if (!isOpen) return null;
