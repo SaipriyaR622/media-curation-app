@@ -9,6 +9,33 @@ import { MOVIE_STATUS_LABELS, Movie, MovieStatus } from '@/lib/types';
 
 const FILTERS: Array<MovieStatus | 'all'> = ['all', 'watchlist', 'watched', 'favorites'];
 
+function TypedTitle({ text }: { text: string }) {
+  const [displayed, setDisplayed] = useState('');
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (displayed.length < text.length) {
+      const timeout = setTimeout(() => {
+        setDisplayed(text.slice(0, displayed.length + 1));
+      }, 80);
+      return () => clearTimeout(timeout);
+    } else {
+      setDone(true);
+    }
+  }, [displayed, text]);
+
+  return (
+    <>
+      {displayed}
+      {!done && (
+        <span
+          className="inline-block w-[2px] h-9 bg-foreground ml-1"
+          style={{ animation: 'blink 1s step-end infinite' }}
+        />
+      )}
+    </>
+  );
+}
 export default function Movies() {
   const { movies, addMovie, updateMovie, deleteMovie, getMovie, filterMovies, addDiaryEntry, removeDiaryEntry } =
     useMovies();
@@ -79,7 +106,9 @@ export default function Movies() {
       <Navbar />
       <main className="mx-auto max-w-6xl px-6 py-12">
         <div className="mb-8 flex items-center justify-between">
-          <h1 className="font-serif text-4xl font-medium tracking-tight">My Movies</h1>
+         <h1 className="font-serif text-4xl font-medium tracking-tight flex items-center">
+  <TypedTitle text="My Movies" />
+</h1>
           <button
             onClick={() => setIsFormOpen(true)}
             className="flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground transition-all hover:text-foreground"

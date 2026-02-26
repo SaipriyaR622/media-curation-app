@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { BookOpen, Clapperboard, Search, Star } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { useBooks } from '@/hooks/use-books';
@@ -19,6 +19,33 @@ interface DiaryItem {
 }
 
 const FILTERS: DiaryFilter[] = ['all', 'books', 'movies'];
+function TypedTitle({ text }: { text: string }) {
+  const [displayed, setDisplayed] = useState('');
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (displayed.length < text.length) {
+      const timeout = setTimeout(() => {
+        setDisplayed(text.slice(0, displayed.length + 1));
+      }, 80);
+      return () => clearTimeout(timeout);
+    } else {
+      setDone(true);
+    }
+  }, [displayed, text]);
+
+  return (
+    <>
+      {displayed}
+      {!done && (
+        <span
+          className="inline-block w-[2px] h-9 bg-foreground ml-1"
+          style={{ animation: 'blink 1s step-end infinite' }}
+        />
+      )}
+    </>
+  );
+}
 
 function formatDiaryDate(value: string) {
   const date = new Date(`${value}T00:00:00`);
@@ -94,7 +121,9 @@ export default function Diary() {
       <Navbar />
       <main className="mx-auto max-w-5xl px-6 py-12">
         <div className="mb-8 flex items-center justify-between">
-          <h1 className="font-serif text-4xl font-medium tracking-tight">Shared Diary</h1>
+          <h1 className="font-serif text-4xl font-medium tracking-tight flex items-center">
+  <TypedTitle text="My Diary" />
+</h1>
           <p className="text-sm text-muted-foreground">{filteredEntries.length} entries</p>
         </div>
 

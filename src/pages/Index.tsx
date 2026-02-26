@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Search, Plus, LayoutGrid, Columns } from 'lucide-react';
 import { useBooks } from '@/hooks/use-books';
 import { BookCard } from '@/components/BookCard';
@@ -6,6 +5,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { AddBookModal } from '@/components/AddBookModal';
 import { Navbar } from '@/components/Navbar';
 import { BookStatus } from '@/lib/types';
+import { useState, useEffect } from 'react';
 
 const filters: { label: string; value: BookStatus | 'all' }[] = [
   { label: 'All', value: 'all' },
@@ -20,6 +20,33 @@ const statusLabels: Record<BookStatus, string> = {
   read: 'Read',
 };
 
+function TypedTitle({ text }: { text: string }) {
+  const [displayed, setDisplayed] = useState('');
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (displayed.length < text.length) {
+      const timeout = setTimeout(() => {
+        setDisplayed(text.slice(0, displayed.length + 1));
+      }, 80);
+      return () => clearTimeout(timeout);
+    } else {
+      setDone(true);
+    }
+  }, [displayed, text]);
+
+  return (
+    <>
+      {displayed}
+      {!done && (
+        <span
+          className="inline-block w-[2px] h-9 bg-foreground ml-1"
+          style={{ animation: 'blink 1s step-end infinite' }}
+        />
+      )}
+    </>
+  );
+}
 const Index = () => {
   const { books, addBook, updateBook, filterBooks } = useBooks();
   const [search, setSearch] = useState('');
@@ -35,7 +62,9 @@ const Index = () => {
       <Navbar />
       <main className="mx-auto max-w-6xl px-6 py-12">
         <div className="mb-8 flex items-center justify-between">
-          <h1 className="font-serif text-4xl font-medium tracking-tight">My Library</h1>
+          <h1 className="font-serif text-4xl font-medium tracking-tight flex items-center">
+  <TypedTitle text="My Library" />
+</h1>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setViewMode(viewMode === 'grid' ? 'spine' : 'grid')}

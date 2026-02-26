@@ -18,6 +18,34 @@ type SongFilter = 'all' | 'currently-listening' | 'repeated';
 const FILTERS: SongFilter[] = ['all', 'currently-listening', 'repeated'];
 const RECENT_SYNC_CURSOR_KEY = 'fragments-spotify-recent-sync-cursor';
 
+function TypedTitle({ text }: { text: string }) {
+  const [displayed, setDisplayed] = useState('');
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (displayed.length < text.length) {
+      const timeout = setTimeout(() => {
+        setDisplayed(text.slice(0, displayed.length + 1));
+      }, 80);
+      return () => clearTimeout(timeout);
+    } else {
+      setDone(true);
+    }
+  }, [displayed, text]);
+
+  return (
+    <>
+      {displayed}
+      {!done && (
+        <span
+          className="inline-block w-[2px] h-9 bg-foreground ml-1"
+          style={{ animation: 'blink 1s step-end infinite' }}
+        />
+      )}
+    </>
+  );
+}
+
 export default function Songs() {
   const {
     songs,
@@ -173,7 +201,9 @@ export default function Songs() {
       <Navbar />
       <main className="mx-auto max-w-6xl px-6 py-12">
         <div className="mb-8 flex items-center justify-between">
-          <h1 className="font-serif text-4xl font-medium tracking-tight">My Songs</h1>
+          <h1 className="font-serif text-4xl font-medium tracking-tight flex items-center">
+  <TypedTitle text="My Songs" />
+</h1>
           <div className="flex items-center gap-2">
             <button
               onClick={beginSpotifyLogin}
