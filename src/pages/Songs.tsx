@@ -159,14 +159,21 @@ export default function Songs() {
   }, [syncSpotify]);
 
   const visibleSongs = useMemo(() => {
-    const searched = filterSongs(search);
-    if (filter === 'currently-listening') {
-      return searched.filter((song) => song.currentlyListening);
-    }
-    if (filter === 'repeated') {
-      return searched.filter((song) => song.repeatCount > 0);
-    }
-    return searched;
+     const searched = filterSongs(search);
+  let filtered = searched;
+  
+  if (filter === 'currently-listening') {
+    filtered = searched.filter((song) => song.currentlyListening);
+  } else if (filter === 'repeated') {
+    filtered = searched.filter((song) => song.repeatCount > 0);
+  }
+
+  return filtered.sort((a, b) => {
+    if (!a.lastPlayedAt && !b.lastPlayedAt) return 0;
+    if (!a.lastPlayedAt) return 1;
+    if (!b.lastPlayedAt) return -1;
+    return b.lastPlayedAt.localeCompare(a.lastPlayedAt);
+  });
   }, [filter, filterSongs, search]);
 
   return (
