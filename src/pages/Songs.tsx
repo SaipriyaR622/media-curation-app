@@ -42,14 +42,11 @@ export default function Songs() {
       const lastCursor = localStorage.getItem(RECENT_SYNC_CURSOR_KEY) || '';
       const sortedRecent = [...recentTracks].sort((a, b) => a.playedAt.localeCompare(b.playedAt));
       const freshRecent = lastCursor ? sortedRecent.filter((track) => track.playedAt > lastCursor) : sortedRecent;
-
       syncRecentPlays(freshRecent);
-
       const newestCursor = sortedRecent[sortedRecent.length - 1]?.playedAt;
       if (newestCursor) {
         localStorage.setItem(RECENT_SYNC_CURSOR_KEY, newestCursor);
       }
-
       return freshRecent.length;
     },
     [syncRecentPlays]
@@ -125,9 +122,7 @@ export default function Songs() {
       return;
     }
 
-    if (!code) {
-      return;
-    }
+    if (!code) return;
 
     completeSpotifyLogin(code)
       .then(async () => {
@@ -152,28 +147,25 @@ export default function Songs() {
     const timer = window.setInterval(() => {
       syncSpotify(true);
     }, 90_000);
-
     return () => {
       window.clearInterval(timer);
     };
   }, [syncSpotify]);
 
   const visibleSongs = useMemo(() => {
-     const searched = filterSongs(search);
-  let filtered = searched;
-  
-  if (filter === 'currently-listening') {
-    filtered = searched.filter((song) => song.currentlyListening);
-  } else if (filter === 'repeated') {
-    filtered = searched.filter((song) => song.repeatCount > 0);
-  }
-
-  return filtered.sort((a, b) => {
-    if (!a.lastPlayedAt && !b.lastPlayedAt) return 0;
-    if (!a.lastPlayedAt) return 1;
-    if (!b.lastPlayedAt) return -1;
-    return b.lastPlayedAt.localeCompare(a.lastPlayedAt);
-  });
+    const searched = filterSongs(search);
+    let filtered = searched;
+    if (filter === 'currently-listening') {
+      filtered = searched.filter((song) => song.currentlyListening);
+    } else if (filter === 'repeated') {
+      filtered = searched.filter((song) => song.repeatCount > 0);
+    }
+    return filtered.sort((a, b) => {
+      if (!a.lastPlayedAt && !b.lastPlayedAt) return 0;
+      if (!a.lastPlayedAt) return 1;
+      if (!b.lastPlayedAt) return -1;
+      return b.lastPlayedAt.localeCompare(a.lastPlayedAt);
+    });
   }, [filter, filterSongs, search]);
 
   return (
@@ -258,79 +250,93 @@ export default function Songs() {
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {visibleSongs.map((song) => (
-              <article key={song.id} className="rounded border border-border bg-card/40 p-4">
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    {song.coverUrl ? (
-                      <img src={song.coverUrl} alt={song.title} className="h-14 w-14 rounded object-cover" />
-                    ) : (
-                      <div className="flex h-14 w-14 items-center justify-center rounded bg-muted">
-                        <Music2 className="h-5 w-5 text-muted-foreground" />
+              <article key={song.id} className="relative overflow-hidden rounded border border-border/50 p-4">
+                {song.coverUrl && (
+                  <div
+                    className="pointer-events-none absolute inset-0 z-0 opacity-[0.08] transition-opacity duration-700"
+                    style={{
+                      backgroundImage: `url(${song.coverUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      filter: 'blur(24px) saturate(1.8)',
+                      transform: 'scale(1.1)',
+                    }}
+                  />
+                )}
+
+                <div className="relative z-10">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      {song.coverUrl ? (
+                        <img src={song.coverUrl} alt={song.title} className="h-16 w-16 rounded object-cover shadow-md" />
+                      ) : (
+                        <div className="flex h-16 w-16 items-center justify-center rounded bg-muted">
+                          <Music2 className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <h2 className="truncate font-serif text-lg">{song.title}</h2>
+                        <p className="truncate text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                          {[song.artist, song.album].filter(Boolean).join(' • ')}
+                        </p>
                       </div>
-                    )}
-                    <div className="min-w-0">
-                      <h2 className="truncate font-serif text-lg">{song.title}</h2>
-                      <p className="truncate text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                        {[song.artist, song.album].filter(Boolean).join(' • ')}
-                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => deleteSong(song.id)}
+                      className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div className="mb-3 grid grid-cols-3 gap-3 text-xs text-muted-foreground">
+                    <div className="rounded border border-border/70 bg-background/30 p-2 backdrop-blur-sm">
+                      <p className="uppercase tracking-[0.12em]">Plays</p>
+                      <p className="mt-1 text-base text-foreground">{song.playCount}</p>
+                    </div>
+                    <div className="rounded border border-border/70 bg-background/30 p-2 backdrop-blur-sm">
+                      <p className="uppercase tracking-[0.12em]">Repeats</p>
+                      <p className="mt-1 text-base text-foreground">{song.repeatCount}</p>
+                    </div>
+                    <div className="rounded border border-border/70 bg-background/30 p-2 backdrop-blur-sm">
+                      <p className="uppercase tracking-[0.12em]">Hours</p>
+                      <p className="mt-1 text-base text-foreground">{(song.totalMinutesListened / 60).toFixed(1)}</p>
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => deleteSong(song.id)}
-                    className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="mb-3 grid grid-cols-3 gap-3 text-xs text-muted-foreground">
-                  <div className="rounded border border-border/70 p-2">
-                    <p className="uppercase tracking-[0.12em]">Plays</p>
-                    <p className="mt-1 text-base text-foreground">{song.playCount}</p>
-                  </div>
-                  <div className="rounded border border-border/70 p-2">
-                    <p className="uppercase tracking-[0.12em]">Repeats</p>
-                    <p className="mt-1 text-base text-foreground">{song.repeatCount}</p>
-                  </div>
-                  <div className="rounded border border-border/70 p-2">
-                    <p className="uppercase tracking-[0.12em]">Hours</p>
-                    <p className="mt-1 text-base text-foreground">{(song.totalMinutesListened / 60).toFixed(1)}</p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => logPlay(song.id)}
-                    className="inline-flex items-center gap-1 rounded border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <Headphones className="h-3.5 w-3.5" />
-                    Log Listen
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleCurrentlyListening(song.id)}
-                    className={`inline-flex items-center gap-1 rounded border px-3 py-1.5 text-xs transition-colors ${
-                      song.currentlyListening
-                        ? 'border-primary text-primary'
-                        : 'border-border text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    <Repeat2 className="h-3.5 w-3.5" />
-                    {song.currentlyListening ? 'Listening Now' : 'Mark Listening'}
-                  </button>
-                  {song.spotifyUrl && (
-                    <a
-                      href={song.spotifyUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => logPlay(song.id)}
+                      className="inline-flex items-center gap-1 rounded border border-border bg-background/40 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur-sm transition-colors hover:text-foreground"
                     >
-                      Open in Spotify
-                    </a>
-                  )}
+                      <Headphones className="h-3.5 w-3.5" />
+                      Log Listen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleCurrentlyListening(song.id)}
+                      className={`inline-flex items-center gap-1 rounded border px-3 py-1.5 text-xs backdrop-blur-sm transition-colors ${
+                        song.currentlyListening
+                          ? 'border-primary text-primary'
+                          : 'border-border bg-background/40 text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Repeat2 className="h-3.5 w-3.5" />
+                      {song.currentlyListening ? 'Listening Now' : 'Mark Listening'}
+                    </button>
+                    {song.spotifyUrl && (
+                      <a
+                        href={song.spotifyUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                      >
+                        Open in Spotify
+                      </a>
+                    )}
+                  </div>
                 </div>
               </article>
             ))}
