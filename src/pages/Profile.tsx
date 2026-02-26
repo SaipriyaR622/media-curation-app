@@ -264,8 +264,21 @@ export default function Profile() {
         } else if (data) {
           const row = data as ProfileCanvasRow;
           const remoteItems = normalizePinnedItems(row.items);
-          setPinnedItems(remoteItems);
-          savePinnedItems(remoteItems, scopedKey);
+
+          if (remoteItems.length > 0) {
+            setPinnedItems(remoteItems);
+            savePinnedItems(remoteItems, scopedKey);
+          } else if (localItems.length > 0) {
+            const persistedLocalItems = toPersistedPinnedItems(localItems);
+            await supabase.from('profile_canvas_items').upsert(
+              {
+                user_id: currentUserId,
+                items: persistedLocalItems,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: 'user_id' }
+            );
+          }
         } else if (localItems.length > 0) {
           const persistedLocalItems = toPersistedPinnedItems(localItems);
           await supabase.from('profile_canvas_items').upsert(

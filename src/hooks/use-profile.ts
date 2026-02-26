@@ -49,6 +49,16 @@ function getStorageKey(userId?: string | null) {
   return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
 }
 
+function loadInitialProfile(): Profile {
+  if (!isSupabaseConfigured || typeof window === "undefined") {
+    return loadProfileFromStorage(STORAGE_KEY, LEGACY_STORAGE_KEY);
+  }
+
+  const lastAuthUser = localStorage.getItem(LAST_AUTH_USER_KEY);
+  const scopedKey = getStorageKey(lastAuthUser);
+  return loadProfileFromStorage(scopedKey, LEGACY_STORAGE_KEY);
+}
+
 function getLegacyProfileRaw() {
   return localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
 }
@@ -168,10 +178,9 @@ async function loadProfilesByIds(ids: string[]) {
 }
 
 export function useProfile() {
-  const [profile, setProfile] = useState<Profile>(() =>
-    isSupabaseConfigured ? defaultProfile : loadProfileFromStorage(STORAGE_KEY, LEGACY_STORAGE_KEY)
-  );
+  const [profile, setProfile] = useState<Profile>(() => loadInitialProfile());
   const [dbUserId, setDbUserId] = useState<string | null>(null);
+  const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [discoverProfiles, setDiscoverProfiles] = useState<FollowableProfile[]>([]);
   const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [followersProfiles, setFollowersProfiles] = useState<FollowableProfile[]>([]);
@@ -240,6 +249,7 @@ export function useProfile() {
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
+      setAuthReady(true);
       setSocialReady(true);
       return;
     }
@@ -253,6 +263,7 @@ export function useProfile() {
         if (userId) {
           localStorage.setItem(LAST_AUTH_USER_KEY, userId);
         }
+        setAuthReady(true);
       }
     };
 
@@ -266,6 +277,7 @@ export function useProfile() {
         if (session?.user?.id) {
           localStorage.setItem(LAST_AUTH_USER_KEY, session.user.id);
         }
+        setAuthReady(true);
       }
     });
 
@@ -276,7 +288,16 @@ export function useProfile() {
   }, []);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase || !dbUserId) {
+    if (!isSupabaseConfigured || !supabase) {
+      setSocialReady(true);
+      return;
+    }
+
+    if (!dbUserId) {
+      if (!authReady) {
+        return;
+      }
+
       setSocialReady(true);
       setFollowersProfiles([]);
       setFollowingProfiles([]);
@@ -354,7 +375,7 @@ export function useProfile() {
     return () => {
       isActive = false;
     };
-  }, [dbUserId, refreshSocialGraph]);
+  }, [authReady, dbUserId, refreshSocialGraph]);
 
   useEffect(() => {
     if (isSupabaseConfigured && !dbUserId) {
