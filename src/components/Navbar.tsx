@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -7,6 +7,9 @@ export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0, ready: false });
+  const navRef = useRef<HTMLDivElement>(null);
+  const linkRefs = useRef<(HTMLAnchorElement | null)[]>([]);
   const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 
   const openGlobalSearch = () => {
@@ -14,12 +17,8 @@ export function Navbar() {
   };
 
   const handleLogout = async () => {
-    if (isLoggingOut) {
-      return;
-    }
-
+    if (isLoggingOut) return;
     setIsLoggingOut(true);
-
     try {
       if (isSupabaseConfigured && supabase) {
         await supabase.auth.signOut();
@@ -38,40 +37,66 @@ export function Navbar() {
     { label: 'Profile', path: '/profile' },
   ];
 
+  const activeIndex = links.findIndex(link =>
+    location.pathname === link.path ||
+    (link.path.includes('books') && location.pathname.startsWith('/book/')) ||
+    (link.path.includes('movies') && location.pathname.startsWith('/movie/')) ||
+    (link.path.includes('songs') && location.pathname.startsWith('/library/songs')) ||
+    (link.path.includes('diary') && location.pathname.startsWith('/library/diary'))
+  );
+
+  useEffect(() => {
+    const activeEl = linkRefs.current[activeIndex];
+    const navEl = navRef.current;
+    if (!activeEl || !navEl) return;
+    const navRect = navEl.getBoundingClientRect();
+    const linkRect = activeEl.getBoundingClientRect();
+    setIndicatorStyle({
+      left: linkRect.left - navRect.left,
+      width: linkRect.width,
+      ready: true,
+    });
+  }, [activeIndex, location.pathname]);
+
   return (
     <header className="border-b-2 border-foreground/80 bg-background">
       <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-6">
         <Link
           to="/"
           className="font-serif text-2xl font-bold uppercase tracking-tight text-foreground"
-          style={{ letterSpacing: "-0.04em" }}
+          style={{ letterSpacing: '-0.04em' }}
         >
           Fragments
         </Link>
 
-        <nav className="flex items-center gap-6 md:gap-10">
-          {links.map(link => {
-            const isActive =
-              location.pathname === link.path ||
-              (link.path.includes('books') && location.pathname.startsWith('/book/')) ||
-              (link.path.includes('movies') && location.pathname.startsWith('/movie/')) ||
-              (link.path.includes('songs') && location.pathname.startsWith('/library/songs')) ||
-              (link.path.includes('diary') && location.pathname.startsWith('/library/diary'));
+        <nav ref={navRef} className="relative flex items-center gap-6 md:gap-10">
+          {activeIndex >= 0 && indicatorStyle.ready && (
+            <div
+              className="pointer-events-none absolute -bottom-[10px] h-px bg-foreground/70"
+              style={{
+                left: indicatorStyle.left,
+                width: indicatorStyle.width,
+                transition: 'left 0.3s cubic-bezier(0.25, 1, 0.5, 1), width 0.3s cubic-bezier(0.25, 1, 0.5, 1)',
+              }}
+            />
+          )}
 
+          {links.map((link, i) => {
+            const isActive = i === activeIndex;
             return (
               <Link
                 key={link.label}
                 to={link.path}
+                ref={el => { linkRefs.current[i] = el; }}
                 className={`text-[11px] font-semibold uppercase tracking-[0.35em] transition-colors ${
-                  isActive
-                    ? 'text-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
+                  isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {link.label}
               </Link>
             );
           })}
+
           <button
             type="button"
             onClick={openGlobalSearch}
