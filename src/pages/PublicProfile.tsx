@@ -109,7 +109,7 @@ function normalizeCanvasItem(value: unknown): CanvasItem | null {
   }
 
   return {
-    id: typeof candidate.id === "string" ? candidate.id : crypto.randomUUID(),
+    id: typeof candidate.id === "string" ? candidate.id : `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     title: typeof candidate.title === "string" ? candidate.title : "Untitled",
     coverUrl: typeof candidate.coverUrl === "string" ? candidate.coverUrl : undefined,
     kind: candidate.kind,

@@ -22,7 +22,8 @@ type ScrapbookItemKind =
   | 'sticky-note'
   | 'ambient-quote'
   | 'washi-tape'
-  | 'paperclip';
+  | 'paperclip'
+  | 'custom-image';
 
 type DrawerTab = 'media' | 'decor';
 type DecorVariant = 'honey' | 'rose' | 'mint' | 'paperclip';
@@ -81,6 +82,7 @@ const SCRAPBOOK_ITEM_KINDS: ScrapbookItemKind[] = [
   'ambient-quote',
   'washi-tape',
   'paperclip',
+  'custom-image',
 ];
 const DECOR_VARIANTS: DecorVariant[] = ['honey', 'rose', 'mint', 'paperclip'];
 
@@ -99,7 +101,7 @@ function normalizePinnedItem(value: unknown): ScrapbookItem | null {
   }
 
   return {
-    id: typeof candidate.id === 'string' ? candidate.id : crypto.randomUUID(),
+    id: typeof candidate.id === 'string' ? candidate.id : `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     title: typeof candidate.title === 'string' ? candidate.title : 'Untitled',
     coverUrl: typeof candidate.coverUrl === 'string' ? candidate.coverUrl : undefined,
     kind: candidate.kind,
@@ -211,6 +213,7 @@ export default function Profile() {
   const canvasButtonBottom = useTransform(scrollY, [0, 1400], [48, 20]);
   const canvasRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageUploadRef = useRef<HTMLInputElement>(null);
   const [pinnedItems, setPinnedItems] = useState<ScrapbookItem[]>([]);
   const [loadedCanvasKey, setLoadedCanvasKey] = useState('');
   const [isCanvasHydrated, setIsCanvasHydrated] = useState(false);
@@ -219,6 +222,7 @@ export default function Profile() {
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('media');
   const [noteDraft, setNoteDraft] = useState('Watch this on a rainy day.');
   const [quoteDraft, setQuoteDraft] = useState('Some stories glow louder in silence.');
+  const [polaroidMode, setPolaroidMode] = useState(false);
   const [activeTextItemId, setActiveTextItemId] = useState<number | null>(null);
   const [selectedCanvasBookId, setSelectedCanvasBookId] = useState<string | null>(null);
   const [selectedCanvasMovieId, setSelectedCanvasMovieId] = useState<string | null>(null);
@@ -428,7 +432,7 @@ export default function Profile() {
 
   const addStickyNoteToCanvas = () => {
     pushItemToCanvas({
-      id: crypto.randomUUID(),
+      id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       title: 'Sticky Note',
       kind: 'sticky-note',
       text: noteDraft.trim() || 'Watch this on a rainy day.',
@@ -439,7 +443,7 @@ export default function Profile() {
 
   const addAmbientQuoteToCanvas = () => {
     pushItemToCanvas({
-      id: crypto.randomUUID(),
+      id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       title: 'Ambient Quote',
       kind: 'ambient-quote',
       text: quoteDraft.trim() || 'Some stories glow louder in silence.',
@@ -448,10 +452,31 @@ export default function Profile() {
     });
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      pushItemToCanvas({
+        id: `custom-image-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        title: file.name,
+        kind: 'custom-image',
+        coverUrl: dataUrl,
+        text: '',
+        decorVariant: polaroidMode ? 'honey' : undefined,
+        baseWidth: polaroidMode ? 220 : 200,
+        baseHeight: polaroidMode ? 280 : 200,
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const addDecorFragment = (variant: DecorVariant) => {
     if (variant === 'paperclip') {
       pushItemToCanvas({
-        id: crypto.randomUUID(),
+        id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         title: 'Paperclip',
         kind: 'paperclip',
         decorVariant: 'paperclip',
@@ -463,7 +488,7 @@ export default function Profile() {
     }
 
     pushItemToCanvas({
-      id: crypto.randomUUID(),
+      id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       title: 'Washi Tape',
       kind: 'washi-tape',
       decorVariant: variant,
@@ -828,7 +853,7 @@ export default function Profile() {
           <AnimatePresence>
             {pinnedItems.map(item => {
               const isTextItem = item.kind === 'sticky-note' || item.kind === 'ambient-quote';
-              const isMediaItem = item.kind === 'book' || item.kind === 'movie' || item.kind === 'song';
+              const isMediaItem = item.kind === 'book' || item.kind === 'movie' || item.kind === 'song' || item.kind === 'custom-image';
               const isEditingText = activeTextItemId === item.instanceId;
               const linkedBook = item.kind === 'book' ? books.find((book) => book.id === item.id) ?? item.book : undefined;
               const linkedMovie = item.kind === 'movie' ? movies.find((movie) => movie.id === item.id) ?? item.movie : undefined;
@@ -907,7 +932,7 @@ export default function Profile() {
                     </div>
                   </div>
 
-                  <div className={isTextItem || isMediaItem ? 'pointer-events-auto' : 'pointer-events-none'}>
+                  <div className="pointer-events-auto">
                     {item.kind === 'book' ? (
                       linkedBook ? (
                         <>
@@ -1022,6 +1047,28 @@ export default function Profile() {
                           placeholder="A line that stays with you."
                         />
                       </div>
+                    ) : item.kind === 'custom-image' ? (
+                      item.decorVariant ? (
+                        <div className="flex flex-col bg-white p-3 pb-10 relative"
+                          style={{ boxShadow: '0 6px 32px rgba(0,0,0,0.22), 0 1.5px 4px rgba(0,0,0,0.10)' }}
+                        >
+                          <div className="overflow-hidden w-full aspect-square">
+                            <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" draggable={false} />
+                          </div>
+                          <input
+                            value={item.text ?? ''}
+                            placeholder="write something..."
+                            onPointerDown={e => { e.stopPropagation(); bringToFront(item.instanceId); setActiveTextItemId(item.instanceId); }}
+                            onBlur={() => setActiveTextItemId(current => current === item.instanceId ? null : current)}
+                            onChange={e => updatePinnedItem(item.instanceId, { text: e.target.value })}
+                            className="mt-3 w-full bg-transparent text-center font-serif text-sm italic text-stone-500 placeholder:text-stone-300 focus:outline-none"
+                          />
+                        </div>
+                      ) : (
+                        <div className="overflow-hidden rounded-sm shadow-md border border-border/40">
+                          <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" draggable={false} />
+                        </div>
+                      )
                     ) : item.kind === 'washi-tape' ? (
                       <div className="flex h-[42px] w-full items-center justify-center">
                         <img
@@ -1251,6 +1298,38 @@ export default function Profile() {
                         Float Quote
                       </button>
                     </div>
+                  </div>
+
+                  <div className="rounded-xl border border-border/80 bg-card/60 p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Photo</p>
+                      <button
+                        type="button"
+                        onClick={() => setPolaroidMode(p => !p)}
+                        className={`text-[10px] uppercase tracking-[0.14em] rounded-full border px-2 py-0.5 transition-colors ${
+                          polaroidMode
+                            ? 'border-foreground text-foreground bg-foreground/10'
+                            : 'border-border text-muted-foreground'
+                        }`}
+                      >
+                        {polaroidMode ? 'Polaroid ✓' : 'Polaroid'}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => imageUploadRef.current?.click()}
+                      className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border/70 bg-background/50 px-3 py-4 text-sm text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Upload Image
+                    </button>
+                    <input
+                      ref={imageUploadRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                    />
                   </div>
 
                   <div className="rounded-xl border border-border/80 bg-card/60 p-3">
