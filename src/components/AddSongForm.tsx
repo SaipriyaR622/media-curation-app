@@ -110,7 +110,7 @@ export default function AddSongForm({ isOpen, onClose, onAdd }: AddSongFormProps
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 p-4 backdrop-blur-md">
-      <div className="relative w-full max-w-xl border border-border bg-background p-6 shadow-2xl">
+      <div className="relative w-full max-w-xl rounded-2xl border border-border/70 bg-card/95 p-6 shadow-2xl backdrop-blur">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="font-serif text-3xl italic">Add Song</h2>
           <button onClick={onClose} className="text-muted-foreground transition-colors hover:text-foreground">

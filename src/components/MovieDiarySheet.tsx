@@ -130,6 +130,7 @@ export function MovieDiarySheet({
 
         <div className="mt-8 space-y-8">
           <section className="space-y-4 rounded-md border border-border bg-card/40 p-5">
+            <p className="section-label">Status & Review</p>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <Select value={status} onValueChange={(value) => setStatus(value as MovieStatus)}>
                 <SelectTrigger className="w-full rounded border-border sm:w-48">
@@ -171,7 +172,7 @@ export function MovieDiarySheet({
           <section className="space-y-4 rounded-md border border-border bg-card/40 p-5">
             <div className="flex items-center gap-2">
               <Clapperboard className="h-4 w-4 text-muted-foreground" />
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Log a Watch</p>
+              <p className="section-label">Log a Watch</p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -220,7 +221,7 @@ export function MovieDiarySheet({
 
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Diary</p>
+              <p className="section-label">Diary</p>
               <span className="text-xs text-muted-foreground">{diaryEntries.length} entries</span>
             </div>
 

@@ -114,7 +114,7 @@ export function AddBookModal({ open, onOpenChange, onAdd }: AddBookModalProps) {
         onOpenChange(v);
       }}
     >
-      <DialogContent className="w-full border border-border bg-background p-8 shadow-2xl sm:max-w-lg [&>button]:hidden">
+      <DialogContent className="w-full rounded-2xl border border-border/70 bg-card/95 p-8 shadow-2xl backdrop-blur sm:max-w-lg [&>button]:hidden">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="font-serif text-3xl italic">Archive Book</h2>
           <button
@@ -133,34 +133,34 @@ export function AddBookModal({ open, onOpenChange, onAdd }: AddBookModalProps) {
             Search Database
           </label>
           <div className="relative">
-            <Search className="absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+            <Search className="absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               placeholder="Search book title..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full border-b border-stone-300 bg-transparent py-2 pl-8 font-serif text-lg focus:border-primary focus:outline-none"
+              className="w-full border-b border-border/70 bg-transparent py-2 pl-8 font-serif text-lg text-foreground placeholder:text-muted-foreground/70 focus:border-primary/70 focus:outline-none"
             />
-            {searching && <Loader2 className="absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-stone-400" />}
+            {searching && <Loader2 className="absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
           </div>
 
           {results.length > 0 && (
-            <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-sm border border-stone-200 bg-white shadow-xl">
+            <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-60 overflow-y-auto rounded-md border border-border/70 bg-popover/95 shadow-2xl ring-1 ring-border/50 backdrop-blur">
               {results.map(r => (
                 <button
                   key={r.key}
                   onClick={() => selectResult(r)}
-                  className="flex w-full items-center gap-4 border-b border-stone-100 p-3 text-left transition-colors last:border-0 hover:bg-stone-50"
+                  className="flex w-full items-center gap-4 border-b border-border/40 p-3 text-left transition-colors last:border-0 hover:bg-muted/60"
                 >
                   {r.coverUrl ? (
                     <img src={r.coverUrl} alt="" className="h-14 w-10 rounded-sm object-cover shadow-sm" />
                   ) : (
-                    <div className="flex h-14 w-10 items-center justify-center rounded-sm border border-stone-200 bg-stone-100 px-0.5 text-center text-[8px] font-serif font-bold text-stone-400">
+                    <div className="flex h-14 w-10 items-center justify-center rounded-sm border border-border bg-muted/40 px-0.5 text-center text-[8px] font-serif font-bold text-muted-foreground">
                       NO COVER
                     </div>
                   )}
                   <div className="min-w-0">
-                    <p className="truncate font-serif text-sm font-medium leading-tight text-stone-900">{r.title}</p>
-                    <p className="mt-1 truncate text-[10px] text-stone-400">{r.author}</p>
+                    <p className="truncate font-serif text-sm font-medium leading-tight text-foreground">{r.title}</p>
+                    <p className="mt-1 truncate text-[10px] text-muted-foreground">{r.author}</p>
                   </div>
                 </button>
               ))}
@@ -169,7 +169,7 @@ export function AddBookModal({ open, onOpenChange, onAdd }: AddBookModalProps) {
         </div>
 
         <form
-          className="space-y-6 border-t border-dashed border-stone-200 pt-6"
+          className="space-y-6 border-t border-dashed border-border/50 pt-6"
           onSubmit={(e) => {
             e.preventDefault();
             handleSubmit();
@@ -240,7 +240,7 @@ export function AddBookModal({ open, onOpenChange, onAdd }: AddBookModalProps) {
                 <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
                 <span>Upload Custom Cover</span>
               </label>
-              <span className="text-xs text-stone-300">or</span>
+              <span className="text-xs text-muted-foreground/60">or</span>
               <input
                 placeholder="Paste image URL..."
                 value={coverUrl}
@@ -258,7 +258,7 @@ export function AddBookModal({ open, onOpenChange, onAdd }: AddBookModalProps) {
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
-                  className={`h-4 w-4 rounded-full border border-black/5 transition-transform ${color === c ? 'scale-125 ring-1 ring-stone-400' : ''}`}
+                  className={`h-4 w-4 rounded-full border border-border transition-transform ${color === c ? 'scale-125 ring-2 ring-primary/40 ring-offset-2 ring-offset-background' : ''}`}
                   style={{ backgroundColor: c }}
                 />
               ))}

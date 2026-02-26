@@ -39,13 +39,17 @@ export function Navbar() {
   ];
 
   return (
-    <header className="border-b border-border bg-background">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        <Link to="/" className="font-serif text-lg font-medium text-foreground">
+    <header className="border-b-2 border-foreground/80 bg-background">
+      <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-6">
+        <Link
+          to="/"
+          className="font-serif text-2xl font-bold uppercase tracking-tight text-foreground"
+          style={{ letterSpacing: "-0.04em" }}
+        >
           Fragments
         </Link>
 
-        <nav className="flex items-center gap-4 md:gap-6">
+        <nav className="flex items-center gap-6 md:gap-10">
           {links.map(link => {
             const isActive =
               location.pathname === link.path ||
@@ -58,9 +62,9 @@ export function Navbar() {
               <Link
                 key={link.label}
                 to={link.path}
-                className={`text-sm transition-colors ${
+                className={`text-[11px] font-semibold uppercase tracking-[0.35em] transition-colors ${
                   isActive
-                    ? 'text-primary underline underline-offset-8 decoration-2'
+                    ? 'text-foreground'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -71,11 +75,11 @@ export function Navbar() {
           <button
             type="button"
             onClick={openGlobalSearch}
-            className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-2 border border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
           >
             <Search className="h-3.5 w-3.5" />
             Search
-            <span className="rounded border border-border/70 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/80">
+            <span className="border border-border/70 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/80">
               {isMac ? 'Cmd+K' : 'Ctrl+K'}
             </span>
           </button>
@@ -83,7 +87,7 @@ export function Navbar() {
             type="button"
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className="inline-flex items-center rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center border border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isLoggingOut ? 'Logging out...' : 'Log out'}
           </button>

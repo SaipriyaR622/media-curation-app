@@ -122,7 +122,7 @@ export default function Movies() {
               onMouseEnter={() => setHoveredMovie(movie)}
               onMouseLeave={() => setHoveredMovie(null)}
             >
-              <div className="aspect-[2/3] overflow-hidden bg-stone-100 shadow-md transition-all duration-500 group-hover:-translate-y-2 group-hover:shadow-2xl">
+              <div className="relative aspect-[2/3] overflow-hidden border border-border/40 bg-card/60 shadow-md transition-all duration-500 group-hover:-translate-y-2 group-hover:shadow-2xl">
                 <img src={movie.coverUrl} alt={movie.title} className="h-full w-full object-cover" />
 
                 <button
@@ -130,7 +130,7 @@ export default function Movies() {
                     event.stopPropagation();
                     handleDeleteMovie(movie.id);
                   }}
-                  className="absolute right-2 top-2 rounded-full bg-black/60 p-2 text-white opacity-0 transition-opacity hover:bg-red-600 group-hover:opacity-100"
+                  className="absolute right-2 top-2 rounded-full bg-black/50 p-2 text-white opacity-0 shadow-lg ring-1 ring-white/10 backdrop-blur transition-opacity hover:bg-destructive group-hover:opacity-100"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -144,7 +144,7 @@ export default function Movies() {
                     {MOVIE_STATUS_LABELS[movie.status]}
                   </span>
                   {movie.rating > 0 && (
-                    <span className="inline-flex items-center gap-1 text-[10px] text-amber-600">
+                    <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
                       <Star className="h-3 w-3 fill-current" />
                       {movie.rating}/5
                     </span>

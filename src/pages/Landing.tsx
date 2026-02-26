@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
@@ -15,7 +15,7 @@ export default function Landing() {
   const x = useSpring(useTransform(mouseX, [-1000, 1000], [-20, 20]), springConfig);
   const y = useSpring(useTransform(mouseY, [-1000, 1000], [-20, 20]), springConfig);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handleMouseMove = (e: MouseEvent) => {
     const { clientX, clientY } = e;
     const moveX = clientX - window.innerWidth / 2;
     const moveY = clientY - window.innerHeight / 2;
@@ -39,7 +39,7 @@ export default function Landing() {
     <div 
       onMouseMove={handleMouseMove}
       // Changed 'cursor-none' to 'cursor-default' to bring back your normal mouse
-      className="relative min-h-screen w-full bg-[#eceae6] flex flex-col items-center justify-center overflow-hidden cursor-default"
+      className="relative min-h-screen w-full bg-background text-foreground flex flex-col items-center justify-center overflow-hidden cursor-default"
     >
       {/* THE CUSTOM CURSOR DIV HAS BEEN REMOVED FROM HERE */}
 
@@ -52,7 +52,7 @@ export default function Landing() {
           <motion.div 
             animate={{ rotate: 360 }} 
             transition={{ duration: 150, repeat: Infinity, ease: "linear" }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] border border-stone-400/10 rounded-full" 
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] border border-border/30 rounded-full" 
           />
         </div>
 
@@ -64,14 +64,14 @@ export default function Landing() {
             transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
             className="flex flex-col items-center"
           >
-            <p className="text-[10px] uppercase tracking-[0.5em] text-stone-400 font-bold mb-4">
+            <p className="text-[10px] uppercase tracking-[0.5em] text-muted-foreground font-bold mb-4">
               Digital Archive / Vol. 01
             </p>
-            <h1 className="font-serif text-7xl md:text-9xl font-medium tracking-tighter text-stone-900 leading-none">
+            <h1 className="font-serif text-7xl md:text-9xl font-medium tracking-tighter text-foreground leading-none">
               Fragments
             </h1>
-            <div className="h-px w-12 bg-stone-400 my-8 opacity-50" />
-            <p className="font-serif italic text-xl text-stone-500 mb-16">
+            <div className="h-px w-12 bg-border my-8 opacity-50" />
+            <p className="font-serif italic text-xl text-muted-foreground mb-16">
               Curate what moves you.
             </p>
           </motion.div>
@@ -88,12 +88,12 @@ export default function Landing() {
               <motion.div 
                 variants={{ hover: { scale: 1.4, opacity: 0 } }}
                 transition={{ duration: 0.6 }}
-                className="absolute inset-0 rounded-full border border-stone-400/50"
+                className="absolute inset-0 rounded-full border border-border/60"
               />
-              <div className="h-14 w-14 rounded-full border border-stone-900 flex items-center justify-center group-hover:bg-stone-900 transition-all duration-500">
+              <div className="h-14 w-14 rounded-full border border-foreground flex items-center justify-center group-hover:bg-foreground transition-all duration-500">
                 <motion.div 
-                  variants={{ hover: { x: 4, color: "#fff" } }}
-                  className="text-stone-900"
+                  variants={{ hover: { x: 4, color: "hsl(var(--background))" } }}
+                  className="text-foreground"
                 >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
@@ -101,7 +101,7 @@ export default function Landing() {
                 </motion.div>
               </div>
             </div>
-            <span className="text-[11px] uppercase tracking-[0.3em] text-stone-400 font-bold group-hover:text-stone-900 transition-colors duration-500">
+            <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground font-bold group-hover:text-foreground transition-colors duration-500">
               Open Archive
             </span>
           </motion.button>
@@ -109,11 +109,11 @@ export default function Landing() {
       </motion.div>
 
       <div className="absolute bottom-10 w-full px-10 flex justify-between items-end pointer-events-none z-20">
-        <div className="text-[9px] text-stone-400 font-mono space-y-1">
+        <div className="text-[9px] text-muted-foreground font-mono space-y-1">
           <p className="tracking-widest underline underline-offset-2">34.0522° N, 118.2437° W</p>
           <p className="opacity-60 uppercase tracking-tighter">© 2026 Archive — Curatorial System</p>
         </div>
-        <div className="hidden md:block h-[1px] w-32 bg-stone-300/50" />
+        <div className="hidden md:block h-[1px] w-32 bg-border/50" />
       </div>
 
       <div className="pointer-events-none fixed inset-0 opacity-[0.03] contrast-150 brightness-110 z-50" 
