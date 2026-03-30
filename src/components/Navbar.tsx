@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
+
 export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -34,11 +35,13 @@ export function Navbar() {
     { label: 'Movies', path: '/library/movies' },
     { label: 'Songs', path: '/library/songs' },
     { label: 'Diary', path: '/library/diary' },
+    { label: 'Resources', path: '/resources' },
     { label: 'Profile', path: '/profile' },
   ];
 
   const activeIndex = links.findIndex(link =>
     location.pathname === link.path ||
+    (link.path === '/resources' && location.pathname.startsWith('/resources')) ||
     (link.path.includes('books') && location.pathname.startsWith('/book/')) ||
     (link.path.includes('movies') && location.pathname.startsWith('/movie/')) ||
     (link.path.includes('songs') && location.pathname.startsWith('/library/songs')) ||
@@ -69,7 +72,7 @@ export function Navbar() {
           Fragments
         </Link>
 
-        <nav ref={navRef} className="relative flex items-center gap-6 md:gap-10">
+        <nav ref={navRef} className="relative flex items-center gap-4 md:gap-8">
           {activeIndex >= 0 && indicatorStyle.ready && (
             <div
               className="pointer-events-none absolute -bottom-[10px] h-px bg-foreground/70"
@@ -88,7 +91,7 @@ export function Navbar() {
                 key={link.label}
                 to={link.path}
                 ref={el => { linkRefs.current[i] = el; }}
-                className={`text-[11px] font-semibold uppercase tracking-[0.35em] transition-colors ${
+                className={`text-[11px] font-semibold uppercase tracking-[0.25em] md:tracking-[0.35em] transition-colors ${
                   isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
                 }`}
               >

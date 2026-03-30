@@ -69,7 +69,7 @@ export default function Landing() {
   const handleEnter = () => {
     playClickSound();
     setIsEntering(true);
-    setTimeout(() => navigate('/Login'), 800);
+    setTimeout(() => navigate('/login'), 800);
   };
 
   return (

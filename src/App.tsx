@@ -17,6 +17,7 @@ import Movies from "./pages/Movies";
 import Diary from "./pages/Diary";
 import Songs from "./pages/Songs";
 import PublicProfile from "./pages/PublicProfile";
+import Resources from "./pages/Resources";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 
 const queryClient = new QueryClient();
@@ -99,7 +100,6 @@ const App = () => {
     }
 
     let isActive = true;
-
     const hydrateAuthState = async () => {
       const { data } = await supabase.auth.getSession();
       if (!isActive) {
@@ -217,6 +217,14 @@ const App = () => {
               element={
                 <ProtectedRoute authReady={authReady} isAuthenticated={isAuthenticated}>
                   <PublicProfile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/resources"
+              element={
+                <ProtectedRoute authReady={authReady} isAuthenticated={isAuthenticated}>
+                  <Resources />
                 </ProtectedRoute>
               }
             />
