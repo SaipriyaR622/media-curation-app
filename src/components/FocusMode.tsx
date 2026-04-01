@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTheme } from 'next-themes';
 
 const PRESETS = [
   { label: '25 / 5', focus: 25, rest: 5 },
@@ -20,6 +21,30 @@ const CHALLENGES = [
 ];
 
 type Phase = 'focus' | 'rest';
+
+type FocusPalette = {
+  bg: string;
+  bgFocus: string;
+  bgRest: string;
+  cardBg: string;
+  cardBorder: string;
+  text: string;
+  muted: string;
+  subtle: string;
+  buttonBorder: string;
+  overlayBg: string;
+  overlayCardBg: string;
+  overlayBorder: string;
+  overlayMuted: string;
+  overlaySubtle: string;
+  overlayInputBorder: string;
+  overlaySecondaryBorder: string;
+  overlaySecondaryText: string;
+  headerTitle: string;
+  headerSub: string;
+  headerMeta: string;
+  footerText: string;
+};
 
 function pad(n: number) {
   return String(n).padStart(2, '0');
@@ -63,12 +88,27 @@ function Particles({ phase }: { phase: Phase }) {
   );
 }
 
-function ProgressRing({ pct, phase, seconds }: { pct: number; phase: Phase; seconds: number }) {
+function ProgressRing({
+  pct,
+  phase,
+  seconds,
+  textColor,
+  dimAlpha,
+}: {
+  pct: number;
+  phase: Phase;
+  seconds: number;
+  textColor: string;
+  dimAlpha: number;
+}) {
   const r = 110;
   const circ = 2 * Math.PI * r;
   const dash = circ * (1 - pct);
   const color = phase === 'rest' ? '#7aa0c4' : '#6aaa6a';
-  const dimColor = phase === 'rest' ? 'rgba(122,160,196,0.1)' : 'rgba(106,170,106,0.1)';
+  const dimColor =
+    phase === 'rest'
+      ? `rgba(122,160,196,${dimAlpha})`
+      : `rgba(106,170,106,${dimAlpha})`;
 
   return (
     <div style={{ position: 'relative', width: 280, height: 280 }}>
@@ -103,7 +143,7 @@ function ProgressRing({ pct, phase, seconds }: { pct: number; phase: Phase; seco
             fontFamily: "'Playfair Display', serif",
             fontSize: 64,
             fontWeight: 400,
-            color: '#eae6de',
+            color: textColor,
             letterSpacing: '-0.03em',
             lineHeight: 1,
           }}
@@ -127,7 +167,15 @@ function ProgressRing({ pct, phase, seconds }: { pct: number; phase: Phase; seco
   );
 }
 
-function ExitChallenge({ onSolve, onCancel }: { onSolve: () => void; onCancel: () => void }) {
+function ExitChallenge({
+  onSolve,
+  onCancel,
+  palette,
+}: {
+  onSolve: () => void;
+  onCancel: () => void;
+  palette: FocusPalette;
+}) {
   const [challenge] = useState(() => pick(CHALLENGES));
   const [val, setVal] = useState('');
   const [wrong, setWrong] = useState(false);
@@ -154,7 +202,7 @@ function ExitChallenge({ onSolve, onCancel }: { onSolve: () => void; onCancel: (
       style={{
         position: 'absolute',
         inset: 0,
-        background: 'rgba(7,9,10,0.92)',
+        background: palette.overlayBg,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -165,8 +213,8 @@ function ExitChallenge({ onSolve, onCancel }: { onSolve: () => void; onCancel: (
       <div
         style={{
           width: 420,
-          border: '1px solid rgba(255,255,255,0.1)',
-          background: 'rgba(14,18,14,0.95)',
+          border: `1px solid ${palette.overlayBorder}`,
+          background: palette.overlayCardBg,
           padding: '40px 44px',
           animation: shake ? 'fm-shake 0.4s ease' : 'fm-fade-up 0.3s ease',
         }}
@@ -177,7 +225,7 @@ function ExitChallenge({ onSolve, onCancel }: { onSolve: () => void; onCancel: (
             fontSize: 9,
             letterSpacing: '0.25em',
             textTransform: 'uppercase',
-            color: 'rgba(255,255,255,0.3)',
+            color: palette.overlayMuted,
             marginBottom: 28,
           }}
         >
@@ -188,7 +236,7 @@ function ExitChallenge({ onSolve, onCancel }: { onSolve: () => void; onCancel: (
             fontFamily: "'Playfair Display', serif",
             fontStyle: 'italic',
             fontSize: 26,
-            color: '#eae6de',
+            color: palette.text,
             marginBottom: 28,
             lineHeight: 1.3,
           }}
@@ -208,8 +256,8 @@ function ExitChallenge({ onSolve, onCancel }: { onSolve: () => void; onCancel: (
             width: '100%',
             background: 'transparent',
             border: 'none',
-            borderBottom: `1px solid ${wrong ? '#c47878' : 'rgba(255,255,255,0.2)'}`,
-            color: wrong ? '#c47878' : '#eae6de',
+            borderBottom: `1px solid ${wrong ? '#c47878' : palette.overlayInputBorder}`,
+            color: wrong ? '#c47878' : palette.text,
             fontFamily: "'DM Mono', monospace",
             fontSize: 18,
             padding: '8px 0',
@@ -220,15 +268,15 @@ function ExitChallenge({ onSolve, onCancel }: { onSolve: () => void; onCancel: (
         />
         {wrong && (
           <p
-            style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: 9,
-              letterSpacing: '0.15em',
-              color: '#c47878',
-              marginBottom: 24,
-              textTransform: 'uppercase',
-            }}
-          >
+          style={{
+            fontFamily: "'DM Mono', monospace",
+            fontSize: 9,
+            letterSpacing: '0.15em',
+            color: '#c47878',
+            marginBottom: 24,
+            textTransform: 'uppercase',
+          }}
+        >
             Not quite - try again
           </p>
         )}
@@ -258,8 +306,8 @@ function ExitChallenge({ onSolve, onCancel }: { onSolve: () => void; onCancel: (
               textTransform: 'uppercase',
               padding: '10px 24px',
               background: 'transparent',
-              border: '1px solid rgba(255,255,255,0.1)',
-              color: 'rgba(255,255,255,0.3)',
+              border: `1px solid ${palette.overlaySecondaryBorder}`,
+              color: palette.overlaySecondaryText,
               cursor: 'pointer',
             }}
           >
@@ -272,6 +320,8 @@ function ExitChallenge({ onSolve, onCancel }: { onSolve: () => void; onCancel: (
 }
 
 export function FocusMode() {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme !== 'light';
   const [preset, setPreset] = useState(0);
   const [phase, setPhase] = useState<Phase>('focus');
   const [seconds, setSeconds] = useState(PRESETS[0].focus * 60);
@@ -400,8 +450,63 @@ export function FocusMode() {
     setJustDone(false);
   };
 
+  const palette = useMemo<FocusPalette>(() => {
+    if (isDark) {
+      return {
+        bg: '#07090a',
+        bgFocus: '#070a07',
+        bgRest: '#060a0e',
+        cardBg: 'rgba(12,16,12,0.9)',
+        cardBorder: 'rgba(255,255,255,0.07)',
+        text: '#eae6de',
+        muted: 'rgba(255,255,255,0.35)',
+        subtle: 'rgba(255,255,255,0.2)',
+        buttonBorder: 'rgba(255,255,255,0.12)',
+        overlayBg: 'rgba(7,9,10,0.92)',
+        overlayCardBg: 'rgba(14,18,14,0.95)',
+        overlayBorder: 'rgba(255,255,255,0.1)',
+        overlayMuted: 'rgba(255,255,255,0.3)',
+        overlaySubtle: 'rgba(255,255,255,0.25)',
+        overlayInputBorder: 'rgba(255,255,255,0.2)',
+        overlaySecondaryBorder: 'rgba(255,255,255,0.1)',
+        overlaySecondaryText: 'rgba(255,255,255,0.3)',
+        headerTitle: 'rgba(255,255,255,0.35)',
+        headerSub: 'rgba(255,255,255,0.15)',
+        headerMeta: 'rgba(255,255,255,0.2)',
+        footerText: 'rgba(255,255,255,0.12)',
+      };
+    }
+    return {
+      bg: '#f7f2ea',
+      bgFocus: '#f7f2ea',
+      bgRest: '#eef4f6',
+      cardBg: 'rgba(255,250,243,0.96)',
+      cardBorder: 'rgba(42,34,26,0.12)',
+      text: '#2a221a',
+      muted: 'rgba(42,34,26,0.6)',
+      subtle: 'rgba(42,34,26,0.4)',
+      buttonBorder: 'rgba(42,34,26,0.2)',
+      overlayBg: 'rgba(247,242,234,0.92)',
+      overlayCardBg: 'rgba(255,250,243,0.98)',
+      overlayBorder: 'rgba(42,34,26,0.18)',
+      overlayMuted: 'rgba(42,34,26,0.55)',
+      overlaySubtle: 'rgba(42,34,26,0.4)',
+      overlayInputBorder: 'rgba(42,34,26,0.25)',
+      overlaySecondaryBorder: 'rgba(42,34,26,0.18)',
+      overlaySecondaryText: 'rgba(42,34,26,0.5)',
+      headerTitle: 'rgba(42,34,26,0.65)',
+      headerSub: 'rgba(42,34,26,0.45)',
+      headerMeta: 'rgba(42,34,26,0.5)',
+      footerText: 'rgba(42,34,26,0.45)',
+    };
+  }, [isDark]);
+
   const accent = phase === 'rest' ? '#7aa0c4' : '#6aaa6a';
-  const accentDim = phase === 'rest' ? 'rgba(122,160,196,0.2)' : 'rgba(106,170,106,0.2)';
+  const accentDim =
+    phase === 'rest'
+      ? `rgba(122,160,196,${isDark ? 0.2 : 0.18})`
+      : `rgba(106,170,106,${isDark ? 0.2 : 0.18})`;
+  const ringDimAlpha = isDark ? 0.1 : 0.24;
 
   return (
     <>
@@ -419,7 +524,7 @@ export function FocusMode() {
           inset: fullscreen ? 0 : undefined,
           width: fullscreen ? undefined : '100%',
           minHeight: fullscreen ? undefined : 'calc(100vh - 180px)',
-          background: fullscreen ? (phase === 'rest' ? '#060a0e' : '#070a07') : '#07090a',
+          background: fullscreen ? (phase === 'rest' ? palette.bgRest : palette.bgFocus) : palette.bg,
           display: 'flex',
           flexDirection: fullscreen ? 'column' : 'row',
           alignItems: 'center',
@@ -436,8 +541,8 @@ export function FocusMode() {
             style={{
               width: 480,
               maxWidth: 'calc(100% - 2rem)',
-              border: '1px solid rgba(255,255,255,0.07)',
-              background: 'rgba(12,16,12,0.9)',
+              border: `1px solid ${palette.cardBorder}`,
+              background: palette.cardBg,
               padding: '44px 48px',
               animation: 'fm-fade-up 0.5s ease both',
             }}
@@ -458,8 +563,8 @@ export function FocusMode() {
                     textTransform: 'uppercase',
                     padding: '7px 14px',
                     background: preset === i ? accentDim : 'transparent',
-                    border: `1px solid ${preset === i ? accent : 'rgba(255,255,255,0.12)'}`,
-                    color: preset === i ? accent : 'rgba(255,255,255,0.3)',
+                    border: `1px solid ${preset === i ? accent : palette.buttonBorder}`,
+                    color: preset === i ? accent : palette.muted,
                     cursor: 'pointer',
                     transition: 'all 0.15s',
                   }}
@@ -474,7 +579,7 @@ export function FocusMode() {
                 fontSize: 9,
                 letterSpacing: '0.25em',
                 textTransform: 'uppercase',
-                color: 'rgba(255,255,255,0.25)',
+                color: palette.subtle,
                 marginBottom: 10,
               }}
             >
@@ -486,7 +591,7 @@ export function FocusMode() {
                 fontFamily: "'Playfair Display', serif",
                 fontSize: 80,
                 fontWeight: 400,
-                color: '#eae6de',
+                color: palette.text,
                 letterSpacing: '-0.04em',
                 lineHeight: 1,
                 marginBottom: 32,
@@ -522,8 +627,8 @@ export function FocusMode() {
                   textTransform: 'uppercase',
                   padding: '10px 24px',
                   background: 'transparent',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: 'rgba(255,255,255,0.3)',
+                  border: `1px solid ${palette.buttonBorder}`,
+                  color: palette.muted,
                   cursor: 'pointer',
                 }}
               >
@@ -536,7 +641,7 @@ export function FocusMode() {
                 fontSize: 9,
                 letterSpacing: '0.18em',
                 textTransform: 'uppercase',
-                color: 'rgba(255,255,255,0.15)',
+                color: palette.subtle,
               }}
             >
               {sessions} completed - preset {PRESETS[preset].label}
@@ -561,7 +666,7 @@ export function FocusMode() {
               }}
             >
               <div>
-                <span style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 15, color: 'rgba(255,255,255,0.35)' }}>
+                <span style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 15, color: palette.headerTitle }}>
                   Fragments
                 </span>
                 <span
@@ -570,7 +675,7 @@ export function FocusMode() {
                     fontSize: 9,
                     letterSpacing: '0.2em',
                     textTransform: 'uppercase',
-                    color: 'rgba(255,255,255,0.15)',
+                    color: palette.headerSub,
                     marginLeft: 16,
                   }}
                 >
@@ -584,7 +689,7 @@ export function FocusMode() {
                     fontSize: 9,
                     letterSpacing: '0.2em',
                     textTransform: 'uppercase',
-                    color: 'rgba(255,255,255,0.2)',
+                    color: palette.headerMeta,
                   }}
                 >
                   {sessions} {sessions === 1 ? 'session' : 'sessions'} - {PRESETS[preset].label}
@@ -597,8 +702,8 @@ export function FocusMode() {
                     letterSpacing: '0.2em',
                     textTransform: 'uppercase',
                     background: 'transparent',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: 'rgba(255,255,255,0.25)',
+                    border: `1px solid ${palette.buttonBorder}`,
+                    color: palette.muted,
                     padding: '7px 16px',
                     cursor: 'pointer',
                   }}
@@ -624,7 +729,13 @@ export function FocusMode() {
             </div>
 
             <div style={{ animation: 'fm-ring-appear 0.5s ease both' }}>
-              <ProgressRing pct={pct} phase={phase} seconds={seconds} />
+              <ProgressRing
+                pct={pct}
+                phase={phase}
+                seconds={seconds}
+                textColor={palette.text}
+                dimAlpha={ringDimAlpha}
+              />
             </div>
 
             <div style={{ display: 'flex', gap: 12, marginTop: 48, animation: 'fm-fade-up 0.6s ease 0.2s both' }}>
@@ -654,8 +765,8 @@ export function FocusMode() {
                   textTransform: 'uppercase',
                   padding: '11px 24px',
                   background: 'transparent',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: 'rgba(255,255,255,0.25)',
+                  border: `1px solid ${palette.buttonBorder}`,
+                  color: palette.muted,
                   cursor: 'pointer',
                 }}
               >
@@ -670,8 +781,8 @@ export function FocusMode() {
                   textTransform: 'uppercase',
                   padding: '11px 24px',
                   background: 'transparent',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: 'rgba(255,255,255,0.25)',
+                  border: `1px solid ${palette.buttonBorder}`,
+                  color: palette.muted,
                   cursor: 'pointer',
                 }}
               >
@@ -686,7 +797,7 @@ export function FocusMode() {
                 fontFamily: "'Playfair Display', serif",
                 fontStyle: 'italic',
                 fontSize: 13,
-                color: 'rgba(255,255,255,0.12)',
+                color: palette.footerText,
                 letterSpacing: '0.02em',
                 textAlign: 'center',
                 maxWidth: 400,
@@ -698,7 +809,7 @@ export function FocusMode() {
           </>
         )}
 
-        {showExit && <ExitChallenge onSolve={handleSolve} onCancel={handleStay} />}
+        {showExit && <ExitChallenge onSolve={handleSolve} onCancel={handleStay} palette={palette} />}
       </div>
     </>
   );

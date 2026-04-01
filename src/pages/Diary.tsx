@@ -1,9 +1,27 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Flame, Loader2, Music2, Search, X } from 'lucide-react';
+import {
+  Award,
+  BookOpen,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Feather,
+  Flame,
+  Loader2,
+  Moon,
+  Music2,
+  Search,
+  Sparkles,
+  Sun,
+  Trophy,
+  X,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { useBooks } from '@/hooks/use-books';
 import { useMovies } from '@/hooks/use-movies';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
+import { DailyTodoItem } from '@/lib/types';
 import { useConservatory } from '@/hooks/use-conservatory';
 import { FocusMode } from '@/components/FocusMode';
 import {
@@ -23,6 +41,7 @@ interface DiaryEntry {
   rating: number;
   review: string;
   isRevisit: boolean;
+  createdAt: string;
 }
 
 interface Plant {
@@ -42,7 +61,19 @@ interface PinnedSong {
 }
 
 type FlowerType = 'Daisy' | 'Poppy' | 'Cosmos' | 'Tulip' | 'Wildgrass';
-type DiaryView = 'calendar' | 'conservatory' | 'focus';
+type DiaryView = 'calendar' | 'conservatory' | 'focus' | 'achievements';
+
+type Badge = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  Icon: LucideIcon;
+  unlocked: boolean;
+  hidden?: boolean;
+  progress?: string;
+  tone?: 'sage' | 'amber' | 'rose' | 'sky' | 'violet' | 'mint';
+};
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -54,6 +85,7 @@ const DIARY_VIEWS: { key: DiaryView; label: string }[] = [
   { key: 'calendar', label: 'Calendar' },
   { key: 'conservatory', label: 'Midnight Conservatory' },
   { key: 'focus', label: 'Focus Mode' },
+  { key: 'achievements', label: 'Achievements' },
 ];
 
 function toDateKey(date: Date) {
@@ -96,6 +128,109 @@ function calculateStreak(activeDates: string[]) {
   }
 
   return streak;
+}
+
+function calculateLongestStreak(activeDates: string[]) {
+  const unique = Array.from(new Set(activeDates)).sort();
+  if (unique.length === 0) return 0;
+  let longest = 0;
+  let current = 0;
+  let prev: Date | null = null;
+  unique.forEach((key) => {
+    const parsed = parseDateKey(key);
+    if (!parsed) return;
+    if (!prev) {
+      current = 1;
+    } else {
+      const diff = (parsed.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24);
+      current = diff === 1 ? current + 1 : 1;
+    }
+    if (current > longest) longest = current;
+    prev = parsed;
+  });
+  return longest;
+}
+
+function countWords(text: string) {
+  return (text.match(/\b[\p{L}\p{N}_']+\b/gu) || []).length;
+}
+
+function toMonthKey(dateKey: string) {
+  return dateKey.slice(0, 7);
+}
+
+function daysBetweenKeys(aKey: string, bKey: string) {
+  const a = parseDateKey(aKey);
+  const b = parseDateKey(bKey);
+  if (!a || !b) return 0;
+  const diff = b.getTime() - a.getTime();
+  return Math.round(diff / (1000 * 60 * 60 * 24));
+}
+
+function toDateKeyFromIso(value?: string | null) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return toDateKey(parsed);
+}
+
+function getSeason(monthIndex: number) {
+  if (monthIndex >= 2 && monthIndex <= 4) return 'spring';
+  if (monthIndex >= 5 && monthIndex <= 7) return 'summer';
+  if (monthIndex >= 8 && monthIndex <= 10) return 'autumn';
+  return 'winter';
+}
+
+const TODO_LIMIT = 5;
+
+function createTodoId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeTodoItems(value: unknown): DailyTodoItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      const candidate = (item ?? {}) as Partial<DailyTodoItem>;
+      const text = typeof candidate.text === 'string' ? candidate.text.trim() : '';
+      if (!text) return null;
+      return {
+        id: typeof candidate.id === 'string' ? candidate.id : createTodoId(),
+        text,
+        done: Boolean(candidate.done),
+        rollover: typeof candidate.rollover === 'boolean' ? candidate.rollover : true,
+        rolledFrom: typeof candidate.rolledFrom === 'string' ? candidate.rolledFrom : undefined,
+        sourceId: typeof candidate.sourceId === 'string' ? candidate.sourceId : undefined,
+        createdAt: typeof candidate.createdAt === 'string' ? candidate.createdAt : undefined,
+        completedAt: typeof candidate.completedAt === 'string' ? candidate.completedAt : undefined,
+      } as DailyTodoItem;
+    })
+    .filter((item): item is DailyTodoItem => Boolean(item));
+}
+
+function serializeTodoItems(items: DailyTodoItem[]) {
+  return JSON.stringify(
+    items.map((item) => ({
+      id: item.id,
+      text: item.text,
+      done: item.done,
+      rollover: item.rollover ?? true,
+      rolledFrom: item.rolledFrom ?? null,
+      sourceId: item.sourceId ?? null,
+      createdAt: item.createdAt ?? null,
+      completedAt: item.completedAt ?? null,
+    }))
+  );
+}
+
+function getHourFromIso(value?: string | null) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.getHours();
 }
 
 const PALETTES = [
@@ -314,7 +449,13 @@ export default function Diary() {
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const [pagesInput, setPagesInput] = useState('');
   const [notesInput, setNotesInput] = useState('');
+  const [todoItems, setTodoItems] = useState<DailyTodoItem[]>([]);
+  const [todoInput, setTodoInput] = useState('');
+  const [todoReflection, setTodoReflection] = useState('');
   const [achievement, setAchievement] = useState({ show: false, streak: 0 });
+  const [badgeCelebration, setBadgeCelebration] = useState<{ show: boolean; badgeId?: string }>({
+    show: false,
+  });
   const [songQuery, setSongQuery] = useState('');
   const [songResults, setSongResults] = useState<SpotifyTrackResult[]>([]);
   const [songSearchLoading, setSongSearchLoading] = useState(false);
@@ -323,6 +464,7 @@ export default function Diary() {
   const [selectedPinnedSong, setSelectedPinnedSong] = useState<PinnedSong | null>(null);
   const songSearchCacheRef = useRef<Map<string, SpotifyTrackResult[]>>(new Map());
   const achievementTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const badgeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { plants, spentEnergy, updatePlantsAndEnergy, loading } = useConservatory();
 
   const entries = useMemo(() => {
@@ -336,6 +478,7 @@ export default function Diary() {
         rating: entry.rating,
         review: entry.review,
         isRevisit: entry.reread,
+        createdAt: entry.createdAt,
       }))
     );
 
@@ -349,6 +492,7 @@ export default function Diary() {
         rating: entry.rating,
         review: entry.review,
         isRevisit: entry.rewatch,
+        createdAt: entry.createdAt,
       }))
     );
 
@@ -416,6 +560,8 @@ export default function Diary() {
       return (
         (log.pages_read ?? 0) > 0 ||
         Boolean(log.notes?.trim()) ||
+        (log.todo_items?.length ?? 0) > 0 ||
+        Boolean(log.todo_reflection?.trim()) ||
         Boolean(log.spotify_track_id) ||
         Boolean(log.song_title) ||
         Boolean(log.song_cover_url)
@@ -430,6 +576,197 @@ export default function Diary() {
     return { activeDays: activeDays.size, totalEntries };
   }, [entries, logs, monthKeyPrefix]);
 
+  const meaningfulLogs = useMemo(
+    () =>
+      logs.filter((log) => (
+        (log.pages_read ?? 0) > 0 ||
+        Boolean(log.notes?.trim()) ||
+        (log.todo_items?.length ?? 0) > 0 ||
+        Boolean(log.todo_reflection?.trim()) ||
+        Boolean(log.spotify_track_id) ||
+        Boolean(log.song_title) ||
+        Boolean(log.song_cover_url)
+      )),
+    [logs]
+  );
+
+  const diaryEntryDates = useMemo(() => {
+    const dates = new Set<string>();
+    entries.forEach((entry) => dates.add(entry.date));
+    meaningfulLogs.forEach((log) => dates.add(log.date));
+    return Array.from(dates);
+  }, [entries, meaningfulLogs]);
+
+  const diaryEntryCount = useMemo(() => entries.length + meaningfulLogs.length, [entries.length, meaningfulLogs.length]);
+
+  const totalWordCount = useMemo(() => {
+    let total = 0;
+    entries.forEach((entry) => {
+      total += countWords(entry.review ?? '');
+    });
+    meaningfulLogs.forEach((log) => {
+      total += countWords(log.notes ?? '');
+      total += countWords(log.todo_reflection ?? '');
+    });
+    return total;
+  }, [entries, meaningfulLogs]);
+
+  const minimalistUnlocked = useMemo(() => {
+    const hasMinimal = (text?: string | null) => {
+      const count = countWords(text ?? '');
+      return count > 0 && count <= 10;
+    };
+    if (entries.some((entry) => hasMinimal(entry.review))) return true;
+    return meaningfulLogs.some((log) => hasMinimal(log.notes) || hasMinimal(log.todo_reflection));
+  }, [entries, meaningfulLogs]);
+
+  const gratitudeCount = useMemo(() => {
+    const regex = /\b(grateful|thankful|blessed)\b/i;
+    const hit = new Set<string>();
+    entries.forEach((entry) => {
+      if (regex.test(entry.review ?? '')) {
+        hit.add(entry.id);
+      }
+    });
+    meaningfulLogs.forEach((log) => {
+      if (regex.test(log.notes ?? '')) {
+        hit.add(`log-${log.date}-notes`);
+      }
+      if (regex.test(log.todo_reflection ?? '')) {
+        hit.add(`log-${log.date}-reflection`);
+      }
+    });
+    return hit.size;
+  }, [entries, meaningfulLogs]);
+
+  const weekendWarrior = useMemo(() => {
+    const monthMap = new Map<string, { sat: boolean; sun: boolean }>();
+    diaryEntryDates.forEach((dateKey) => {
+      const parsed = parseDateKey(dateKey);
+      if (!parsed) return;
+      const monthKey = toMonthKey(dateKey);
+      const entry = monthMap.get(monthKey) ?? { sat: false, sun: false };
+      const day = parsed.getDay();
+      if (day === 6) entry.sat = true;
+      if (day === 0) entry.sun = true;
+      monthMap.set(monthKey, entry);
+    });
+    let unlocked = false;
+    let best = 0;
+    let bestMonth = '';
+    monthMap.forEach((value, key) => {
+      const count = (value.sat ? 1 : 0) + (value.sun ? 1 : 0);
+      if (count > best) {
+        best = count;
+        bestMonth = key;
+      }
+      if (value.sat && value.sun) {
+        unlocked = true;
+      }
+    });
+    return { unlocked, best, bestMonth };
+  }, [diaryEntryDates]);
+
+  const seasonalProgress = useMemo(() => {
+    const seasons = new Set<string>();
+    diaryEntryDates.forEach((dateKey) => {
+      const parsed = parseDateKey(dateKey);
+      if (!parsed) return;
+      seasons.add(getSeason(parsed.getMonth()));
+    });
+    return { count: seasons.size, seasons };
+  }, [diaryEntryDates]);
+
+  const comebackGap = useMemo(() => {
+    const sorted = [...diaryEntryDates].sort();
+    let maxGap = 0;
+    for (let i = 1; i < sorted.length; i += 1) {
+      const gap = daysBetweenKeys(sorted[i - 1], sorted[i]);
+      if (gap > maxGap) maxGap = gap;
+    }
+    return Math.max(0, maxGap - 1);
+  }, [diaryEntryDates]);
+
+  const todoHistory = useMemo(() => {
+    const map = new Map<string, { dateKey: string; sourceId?: string; createdAt?: string }>();
+    logs.forEach((log) => {
+      normalizeTodoItems(log.todo_items).forEach((item) => {
+        map.set(item.id, { dateKey: log.date, sourceId: item.sourceId, createdAt: item.createdAt });
+      });
+    });
+    return map;
+  }, [logs]);
+
+  const todoBadges = useMemo(() => {
+    let maxDone = 0;
+    let maxOverdueDays = 0;
+    let cleanSlateStreak = 0;
+    let cleanSlateBest = 0;
+    let taskSniper = false;
+
+    const sortedLogs = [...logs].sort((a, b) => a.date.localeCompare(b.date));
+    let lastDate: string | null = null;
+
+    sortedLogs.forEach((log) => {
+      const items = normalizeTodoItems(log.todo_items);
+      const doneCount = items.filter((item) => item.done).length;
+      if (doneCount > maxDone) maxDone = doneCount;
+
+      const isCleanDay =
+        items.every((item) => item.done) && items.every((item) => !item.rolledFrom);
+
+      if (isCleanDay) {
+        if (lastDate && daysBetweenKeys(lastDate, log.date) === 1) {
+          cleanSlateStreak += 1;
+        } else {
+          cleanSlateStreak = 1;
+        }
+      } else {
+        cleanSlateStreak = 0;
+      }
+      if (cleanSlateStreak > cleanSlateBest) cleanSlateBest = cleanSlateStreak;
+      lastDate = log.date;
+
+      items.forEach((item) => {
+        if (!item.done) return;
+
+        const completedAt = item.completedAt ? new Date(item.completedAt) : null;
+        const createdAt = item.createdAt ? new Date(item.createdAt) : null;
+        if (completedAt && createdAt) {
+          const diffMs = completedAt.getTime() - createdAt.getTime();
+          if (diffMs >= 0 && diffMs <= 60 * 60 * 1000) {
+            taskSniper = true;
+          }
+        }
+
+        const createdKey = toDateKeyFromIso(item.createdAt);
+        let originKey = createdKey;
+        if (!originKey && item.sourceId) {
+          let currentId = item.sourceId;
+          let guard = 0;
+          while (currentId && guard < 10) {
+            const node = todoHistory.get(currentId);
+            if (!node) break;
+            originKey = node.createdAt ? toDateKeyFromIso(node.createdAt) ?? node.dateKey : node.dateKey;
+            currentId = node.sourceId ?? '';
+            guard += 1;
+          }
+        }
+        if (originKey) {
+          const overdue = Math.max(0, daysBetweenKeys(originKey, log.date));
+          if (overdue > maxOverdueDays) maxOverdueDays = overdue;
+        }
+      });
+    });
+
+    return {
+      maxDone,
+      maxOverdueDays,
+      cleanSlateBest,
+      taskSniper,
+    };
+  }, [logs, todoHistory]);
+
   useEffect(() => {
     setSelectedDateKey(null);
   }, [currentYear, currentMonth]);
@@ -438,6 +775,9 @@ export default function Diary() {
     return () => {
       if (achievementTimer.current) {
         clearTimeout(achievementTimer.current);
+      }
+      if (badgeTimer.current) {
+        clearTimeout(badgeTimer.current);
       }
     };
   }, []);
@@ -467,10 +807,34 @@ export default function Diary() {
     return map;
   }, [logs]);
 
+  const todoStats = useMemo(() => {
+    const total = todoItems.length;
+    const completed = todoItems.filter((item) => item.done).length;
+    return {
+      total,
+      completed,
+      progress: total === 0 ? 0 : completed / total,
+    };
+  }, [todoItems]);
+
+  const todosChanged = useMemo(() => {
+    const stored = serializeTodoItems(normalizeTodoItems(selectedLog?.todo_items));
+    const current = serializeTodoItems(todoItems);
+    return stored !== current;
+  }, [selectedLog, todoItems]);
+
+  const reflectionChanged = useMemo(
+    () => (todoReflection.trim() !== (selectedLog?.todo_reflection ?? '').trim()),
+    [todoReflection, selectedLog]
+  );
+
   useEffect(() => {
     if (!selectedDateKey) {
       setPagesInput('');
       setNotesInput('');
+      setTodoItems([]);
+      setTodoInput('');
+      setTodoReflection('');
       setSongQuery('');
       setSongResults([]);
       setSongSearchError('');
@@ -479,6 +843,35 @@ export default function Diary() {
     }
     setPagesInput(selectedLog ? String(selectedLog.pages_read) : '');
     setNotesInput(selectedLog?.notes ?? '');
+    const baseTodos = normalizeTodoItems(selectedLog?.todo_items);
+    const prevKey = shiftDateKey(selectedDateKey, -1);
+    const prevLog = logsByDate.get(prevKey);
+    let mergedTodos = [...baseTodos];
+    if (prevLog) {
+      const rolloverCandidates = normalizeTodoItems(prevLog.todo_items).filter(
+        (item) => (item.rollover ?? true) && !item.done
+      );
+      const existingSourceIds = new Set(mergedTodos.map((item) => item.sourceId).filter(Boolean) as string[]);
+      rolloverCandidates.forEach((item) => {
+        if (mergedTodos.length >= TODO_LIMIT) return;
+        if (existingSourceIds.has(item.id)) return;
+        mergedTodos = [
+          ...mergedTodos,
+          {
+            ...item,
+            id: createTodoId(),
+            done: false,
+            rolledFrom: prevKey,
+            sourceId: item.id,
+            createdAt: item.createdAt ?? new Date().toISOString(),
+            completedAt: undefined,
+          },
+        ];
+      });
+    }
+    setTodoItems(mergedTodos);
+    setTodoInput('');
+    setTodoReflection(selectedLog?.todo_reflection ?? '');
     setSongQuery('');
     setSongResults([]);
     setSongSearchError('');
@@ -493,7 +886,7 @@ export default function Diary() {
     } else {
       setSelectedPinnedSong(null);
     }
-  }, [selectedDateKey, selectedLog]);
+  }, [selectedDateKey, selectedLog, logsByDate]);
 
   useEffect(() => {
     const normalizedQuery = songQuery.trim().toLowerCase();
@@ -597,13 +990,29 @@ export default function Diary() {
 
   const goPrevMonth = () => setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
   const goNextMonth = () => setCurrentDate(new Date(currentYear, currentMonth + 1, 1));
-  const handleLogPages = async () => {
+  const formatTodoDate = (dateKey: string) => {
+    const parsed = parseDateKey(dateKey);
+    if (!parsed) return dateKey;
+    return `${MONTHS[parsed.getMonth()].slice(0, 3)} ${parsed.getDate()}`;
+  };
+  const addTodoItem = () => {
+    const text = todoInput.trim();
+    if (!text || todoItems.length >= TODO_LIMIT) return;
+    setTodoItems((prev) => [
+      ...prev,
+      { id: createTodoId(), text, done: false, rollover: true, createdAt: new Date().toISOString() },
+    ]);
+    setTodoInput('');
+  };
+  const handleSaveLog = async () => {
     if (!selectedDateKey) return;
     const parsed = pagesInput.trim() === ''
       ? selectedLog?.pages_read ?? 0
       : Number(pagesInput);
     if (Number.isNaN(parsed)) return;
     const cleanedNotes = notesInput.trim();
+    const cleanedTodos = normalizeTodoItems(todoItems).slice(0, TODO_LIMIT);
+    const cleanedReflection = todoReflection.trim();
     await upsertLog(
       selectedDateKey,
       parsed,
@@ -616,7 +1025,11 @@ export default function Diary() {
             coverUrl: selectedPinnedSong.coverUrl,
             spotifyUrl: selectedPinnedSong.spotifyUrl,
           }
-        : null
+        : null,
+      {
+        todoItems: cleanedTodos,
+        todoReflection: cleanedReflection.length > 0 ? cleanedReflection : null,
+      }
     );
 
     const projectedDates = Array.from(new Set([...activeDateKeys, selectedDateKey]));
@@ -692,6 +1105,339 @@ export default function Diary() {
     (selectedPinnedSong?.artist ?? '') !== (selectedLog?.song_artist ?? '') ||
     (selectedPinnedSong?.coverUrl ?? '') !== (selectedLog?.song_cover_url ?? '') ||
     (selectedPinnedSong?.spotifyUrl ?? '') !== (selectedLog?.song_spotify_url ?? '');
+
+  const notesChanged = notesInput.trim() !== (selectedLog?.notes ?? '');
+  const pagesValue = pagesInput.trim() === '' ? String(selectedLog?.pages_read ?? '') : pagesInput.trim();
+  const pagesChanged = pagesValue !== String(selectedLog?.pages_read ?? '');
+  const hasLogChanges =
+    pagesChanged ||
+    notesChanged ||
+    songChanged ||
+    todosChanged ||
+    reflectionChanged;
+
+  const longestStreak = useMemo(() => calculateLongestStreak(diaryEntryDates), [diaryEntryDates]);
+
+  const taskMasterStreak = useMemo(() => {
+    const completedDates = logs
+      .filter((log) => (log.todo_items?.length ?? 0) > 0 && (log.todo_items ?? []).every((item) => item.done))
+      .map((log) => log.date);
+    return calculateLongestStreak(completedDates);
+  }, [logs]);
+
+  const maxWordCount = useMemo(() => {
+    let max = 0;
+    entries.forEach((entry) => {
+      max = Math.max(max, countWords(entry.review ?? ''));
+    });
+    meaningfulLogs.forEach((log) => {
+      max = Math.max(max, countWords(log.notes ?? ''));
+      max = Math.max(max, countWords(log.todo_reflection ?? ''));
+    });
+    return max;
+  }, [entries, meaningfulLogs]);
+
+  const hasNightOwl = useMemo(() => {
+    const entryHit = entries.some((entry) => {
+      const hour = getHourFromIso(entry.createdAt);
+      return hour !== null && hour >= 0 && hour < 3;
+    });
+    if (entryHit) return true;
+    return meaningfulLogs.some((log) => {
+      const hour = getHourFromIso(log.created_at);
+      return hour !== null && hour >= 0 && hour < 3;
+    });
+  }, [entries, meaningfulLogs]);
+
+  const hasEarlyBird = useMemo(() => {
+    const entryHit = entries.some((entry) => {
+      const hour = getHourFromIso(entry.createdAt);
+      return hour !== null && hour >= 0 && hour < 7;
+    });
+    if (entryHit) return true;
+    return meaningfulLogs.some((log) => {
+      const hour = getHourFromIso(log.created_at);
+      return hour !== null && hour >= 0 && hour < 7;
+    });
+  }, [entries, meaningfulLogs]);
+
+
+  const pinnedSongCount = useMemo(
+    () => logs.filter((log) => Boolean(log.spotify_track_id || log.song_title)).length,
+    [logs]
+  );
+
+  const bloomedCount = useMemo(() => plants.filter((pl) => pl.stage === MAX_STAGE).length, [plants]);
+
+  const badges = useMemo<Badge[]>(() => ([
+    {
+      id: 'first-ink',
+      name: 'First Ink',
+      description: 'Write your very first diary entry.',
+      category: 'Onboarding',
+      Icon: Feather,
+      unlocked: diaryEntryDates.length > 0,
+      progress: `${Math.min(diaryEntryDates.length, 1)}/1`,
+      tone: 'sage',
+    },
+    {
+      id: 'streak-starter',
+      name: 'Streak Starter',
+      description: 'Write in the diary for 3 consecutive days.',
+      category: 'Consistency',
+      Icon: Flame,
+      unlocked: longestStreak >= 3,
+      progress: `${Math.min(longestStreak, 3)}/3 days`,
+      tone: 'amber',
+    },
+    {
+      id: 'habit-builder',
+      name: 'Habit Builder',
+      description: 'Maintain a 30-day journaling streak.',
+      category: 'Consistency',
+      Icon: Trophy,
+      unlocked: longestStreak >= 30,
+      progress: `${Math.min(longestStreak, 30)}/30 days`,
+      tone: 'rose',
+    },
+    {
+      id: 'task-master',
+      name: 'Task Master',
+      description: 'Complete 100% of your daily to-do list for a week.',
+      category: 'Productivity',
+      Icon: CheckCircle2,
+      unlocked: taskMasterStreak >= 7,
+      progress: `${Math.min(taskMasterStreak, 7)}/7 days`,
+      tone: 'mint',
+    },
+    {
+      id: 'night-owl',
+      name: 'Night Owl',
+      description: 'Write an entry between 12:00 AM and 3:00 AM.',
+      category: 'Behavioral',
+      Icon: Moon,
+      unlocked: hasNightOwl,
+      progress: hasNightOwl ? 'Unlocked' : '12:00 AM - 3:00 AM',
+      tone: 'violet',
+    },
+    {
+      id: 'early-bird',
+      name: 'Early Bird',
+      description: 'Write an entry before 7:00 AM.',
+      category: 'Behavioral',
+      Icon: Sun,
+      unlocked: hasEarlyBird,
+      progress: hasEarlyBird ? 'Unlocked' : 'Before 7:00 AM',
+      tone: 'amber',
+    },
+    {
+      id: 'wordsmith',
+      name: 'Wordsmith',
+      description: 'Write an entry that exceeds 500 words.',
+      category: 'Volume',
+      Icon: BookOpen,
+      unlocked: maxWordCount >= 500,
+      progress: `${Math.min(maxWordCount, 500)}/500 words`,
+      tone: 'sky',
+    },
+    {
+      id: 'year-in-review',
+      name: 'A Year in Review',
+      description: 'Keep the diary active for a full 365 days.',
+      category: 'Milestone',
+      Icon: Award,
+      unlocked: diaryEntryDates.length >= 365,
+      progress: `${Math.min(diaryEntryDates.length, 365)}/365 days`,
+      tone: 'sage',
+    },
+    {
+      id: 'century-club',
+      name: 'Century Club',
+      description: 'Reach 100 total diary entries.',
+      category: 'Milestone',
+      Icon: Trophy,
+      unlocked: diaryEntryCount >= 100,
+      progress: `${Math.min(diaryEntryCount, 100)}/100 entries`,
+      tone: 'amber',
+    },
+    {
+      id: 'comeback-kid',
+      name: 'The Comeback Kid',
+      description: 'Write an entry after missing 7 or more days.',
+      category: 'Consistency',
+      Icon: Flame,
+      unlocked: comebackGap >= 7,
+      progress: `${Math.min(comebackGap, 7)}/7 missed days`,
+      tone: 'rose',
+    },
+    {
+      id: 'weekend-warrior',
+      name: 'Weekend Warrior',
+      description: 'Log an entry on both Saturday and Sunday for a month.',
+      category: 'Consistency',
+      Icon: Sun,
+      unlocked: weekendWarrior.unlocked,
+      progress: `${Math.min(weekendWarrior.best, 2)}/2 weekend days`,
+      tone: 'amber',
+    },
+    {
+      id: 'seasoned-pro',
+      name: 'Seasoned Pro',
+      description: 'Write at least one entry in Spring, Summer, Autumn, and Winter.',
+      category: 'Consistency',
+      Icon: Award,
+      unlocked: seasonalProgress.count >= 4,
+      progress: `${Math.min(seasonalProgress.count, 4)}/4 seasons`,
+      tone: 'sage',
+    },
+    {
+      id: 'soundtrack-scribe',
+      name: 'Soundtrack Scribe',
+      description: 'Pin 10 songs to your daily entries.',
+      category: 'Hidden',
+      Icon: Music2,
+      unlocked: pinnedSongCount >= 10,
+      progress: `${Math.min(pinnedSongCount, 10)}/10 songs`,
+      tone: 'sky',
+      hidden: true,
+    },
+    {
+      id: 'garden-whisperer',
+      name: 'Garden Whisperer',
+      description: 'Bloom 5 plants in the conservatory.',
+      category: 'Hidden',
+      Icon: Sparkles,
+      unlocked: bloomedCount >= 5,
+      progress: `${Math.min(bloomedCount, 5)}/5 blooms`,
+      tone: 'mint',
+      hidden: true,
+    },
+    {
+      id: 'procrastination-defeated',
+      name: 'Procrastination Defeated',
+      description: 'Complete a task that rolled over for 3 or more days.',
+      category: 'Productivity',
+      Icon: CheckCircle2,
+      unlocked: todoBadges.maxOverdueDays >= 3,
+      progress: `${Math.min(todoBadges.maxOverdueDays, 3)}/3 days`,
+      tone: 'mint',
+    },
+    {
+      id: 'overachiever',
+      name: 'The Overachiever',
+      description: 'Complete 5 or more tasks in a single day.',
+      category: 'Productivity',
+      Icon: CheckCircle2,
+      unlocked: todoBadges.maxDone >= 5,
+      progress: `${Math.min(todoBadges.maxDone, 5)}/5 tasks`,
+      tone: 'mint',
+    },
+    {
+      id: 'clean-slate',
+      name: 'Clean Slate',
+      description: 'Finish a week with absolutely zero rollover tasks.',
+      category: 'Productivity',
+      Icon: CheckCircle2,
+      unlocked: todoBadges.cleanSlateBest >= 7,
+      progress: `${Math.min(todoBadges.cleanSlateBest, 7)}/7 days`,
+      tone: 'sage',
+    },
+    {
+      id: 'task-sniper',
+      name: 'Task Sniper',
+      description: 'Complete a task within 1 hour of adding it.',
+      category: 'Productivity',
+      Icon: CheckCircle2,
+      unlocked: todoBadges.taskSniper,
+      progress: todoBadges.taskSniper ? 'Unlocked' : 'Within 1 hour',
+      tone: 'sky',
+    },
+    {
+      id: 'novel-writer',
+      name: 'Novel Writer',
+      description: 'Hit a lifetime total of 50,000 words written across all entries.',
+      category: 'Writing',
+      Icon: BookOpen,
+      unlocked: totalWordCount >= 50000,
+      progress: `${Math.min(totalWordCount, 50000)}/50000 words`,
+      tone: 'sky',
+    },
+    {
+      id: 'minimalist',
+      name: 'The Minimalist',
+      description: 'Save an entry that is one sentence or under 10 words.',
+      category: 'Writing',
+      Icon: Feather,
+      unlocked: minimalistUnlocked,
+      progress: minimalistUnlocked ? 'Unlocked' : 'Under 10 words',
+      tone: 'rose',
+    },
+    {
+      id: 'gratitude-guru',
+      name: 'Gratitude Guru',
+      description: 'Use "grateful", "thankful", or "blessed" in 10 different entries.',
+      category: 'Writing',
+      Icon: Sparkles,
+      unlocked: gratitudeCount >= 10,
+      progress: `${Math.min(gratitudeCount, 10)}/10 entries`,
+      tone: 'amber',
+    },
+  ]), [
+    diaryEntryDates.length,
+    longestStreak,
+    taskMasterStreak,
+    hasNightOwl,
+    hasEarlyBird,
+    maxWordCount,
+    diaryEntryCount,
+    comebackGap,
+    weekendWarrior.unlocked,
+    weekendWarrior.best,
+    seasonalProgress.count,
+    pinnedSongCount,
+    bloomedCount,
+    todoBadges.maxOverdueDays,
+    todoBadges.maxDone,
+    todoBadges.cleanSlateBest,
+    todoBadges.taskSniper,
+    totalWordCount,
+    minimalistUnlocked,
+    gratitudeCount,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const unlockedIds = badges.filter((badge) => badge.unlocked).map((badge) => badge.id);
+    const storageKey = 'cozy-reads:diary-badges';
+    let storedIds: string[] = [];
+    try {
+      const stored = window.localStorage.getItem(storageKey);
+      storedIds = stored ? (JSON.parse(stored) as string[]) : [];
+    } catch {
+      storedIds = [];
+    }
+    const newlyUnlocked = unlockedIds.filter((id) => !storedIds.includes(id));
+    if (newlyUnlocked.length > 0) {
+      const badge = badges.find((item) => item.id === newlyUnlocked[0]);
+      if (badge) {
+        setBadgeCelebration({ show: true, badgeId: badge.id });
+        if (badgeTimer.current) {
+          clearTimeout(badgeTimer.current);
+        }
+        badgeTimer.current = setTimeout(() => {
+          setBadgeCelebration({ show: false });
+        }, 4500);
+      }
+    }
+    const merged = Array.from(new Set([...storedIds, ...unlockedIds]));
+    window.localStorage.setItem(storageKey, JSON.stringify(merged));
+  }, [badges]);
+
+  const unlockedCount = useMemo(() => badges.filter((badge) => badge.unlocked).length, [badges]);
+  const celebrationBadge = useMemo(
+    () => badges.find((badge) => badge.id === badgeCelebration.badgeId),
+    [badges, badgeCelebration.badgeId]
+  );
 
 
   return (
@@ -846,6 +1592,48 @@ export default function Diary() {
         {activeView === 'focus' && (
           <FocusMode />
         )}
+
+        {activeView === 'achievements' && (
+          <section className="achievements-view">
+            <header className="achievements-header">
+              <div>
+                <div className="achievements-title">Achievement Cabinet</div>
+                <div className="achievements-subtitle">Small wins, steady streaks, and secret surprises.</div>
+              </div>
+              <div className="achievements-count">
+                <span className="achievements-count-num">{unlockedCount}</span>
+                <span className="achievements-count-total">/ {badges.length}</span>
+                <span className="achievements-count-label">Unlocked</span>
+              </div>
+            </header>
+
+            <div className="achievements-grid">
+              {badges.map((badge) => {
+                const isLocked = !badge.unlocked;
+                const isHidden = Boolean(badge.hidden && !badge.unlocked);
+                const BadgeIcon = badge.Icon;
+                const progressText = isHidden ? '???' : badge.progress;
+                return (
+                  <div key={badge.id} className={`badge-card ${isLocked ? 'locked' : ''}`} data-tone={badge.tone}>
+                    <div className="badge-icon">
+                      <BadgeIcon size={20} />
+                    </div>
+                    <div className="badge-body">
+                      <div className="badge-name">{isHidden ? 'Hidden Badge' : badge.name}</div>
+                      <div className="badge-desc">
+                        {isHidden ? 'Keep journaling to reveal this one.' : badge.description}
+                      </div>
+                      <div className="badge-meta">
+                        <span className="badge-category">{badge.category}</span>
+                        <span className="badge-progress">{progressText}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </div>
 
       <div className={`day-panel ${selectedDateKey && activeView === 'calendar' ? 'open' : ''}`}>
@@ -869,13 +1657,8 @@ export default function Diary() {
               <button
                 type="button"
                 className="pages-log"
-                onClick={handleLogPages}
-                disabled={
-                  (pagesInput.trim() === '' && notesInput.trim() === '') ||
-                  (pagesInput.trim() === String(selectedLog?.pages_read ?? '') &&
-                    notesInput.trim() === (selectedLog?.notes ?? '') &&
-                    !songChanged)
-                }
+                onClick={handleSaveLog}
+                disabled={!hasLogChanges}
               >
                 Save
               </button>
@@ -998,6 +1781,115 @@ export default function Diary() {
             </div>
           )}
           {selectedDateKey && (
+            <div className="todo-block">
+              <div className="todo-header-row">
+                <div>
+                  <label className="notes-label">Daily action items</label>
+                  <div className="todo-sub">Pick 3-5 key tasks that support today's entry.</div>
+                </div>
+                <div className="todo-progress">
+                  <span>{todoStats.completed}/{todoStats.total}</span>
+                  <span className="todo-progress-label">Done</span>
+                </div>
+              </div>
+              <div className="todo-progress-bar">
+                <span style={{ width: `${Math.round(todoStats.progress * 100)}%` }} />
+              </div>
+              <div className="todo-input-row">
+                <input
+                  type="text"
+                  value={todoInput}
+                  onChange={(event) => setTodoInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      addTodoItem();
+                    }
+                  }}
+                  placeholder={todoItems.length >= TODO_LIMIT ? 'Task list is full' : 'Add a task...'}
+                  className="todo-input"
+                  maxLength={90}
+                />
+                <button
+                  type="button"
+                  className="todo-add"
+                  onClick={addTodoItem}
+                  disabled={todoItems.length >= TODO_LIMIT || todoInput.trim().length === 0}
+                >
+                  Add
+                </button>
+              </div>
+              <div className="todo-list">
+                {todoItems.length === 0 && (
+                  <div className="todo-empty">Nothing here yet. Keep it light and meaningful.</div>
+                )}
+                {todoItems.map((item) => (
+                  <div key={item.id} className={`todo-item ${item.done ? 'done' : ''}`}>
+                    <label className="todo-check">
+                      <input
+                        type="checkbox"
+                        checked={item.done}
+                        onChange={() => {
+                          setTodoItems((prev) =>
+                            prev.map((todo) => (
+                              todo.id === item.id
+                                ? {
+                                  ...todo,
+                                  done: !todo.done,
+                                  completedAt: !todo.done ? new Date().toISOString() : undefined,
+                                }
+                                : todo
+                            ))
+                          );
+                        }}
+                      />
+                      <span className="todo-text">{item.text}</span>
+                    </label>
+                    <label className="todo-rollover">
+                      <input
+                        type="checkbox"
+                        checked={item.rollover ?? true}
+                        onChange={() => {
+                          setTodoItems((prev) =>
+                            prev.map((todo) => (
+                              todo.id === item.id ? { ...todo, rollover: !(todo.rollover ?? true) } : todo
+                            ))
+                          );
+                        }}
+                      />
+                      <span>Roll over</span>
+                    </label>
+                    {item.rolledFrom && (
+                      <span className="todo-from">From {formatTodoDate(item.rolledFrom)}</span>
+                    )}
+                    <button
+                      type="button"
+                      className="todo-remove"
+                      onClick={() => {
+                        setTodoItems((prev) => prev.filter((todo) => todo.id !== item.id));
+                      }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="todo-reflection">
+                <label className="notes-label" htmlFor="todo-reflection">
+                  How did you feel about what you accomplished today?
+                </label>
+                <textarea
+                  id="todo-reflection"
+                  value={todoReflection}
+                  onChange={(event) => setTodoReflection(event.target.value)}
+                  placeholder="A quick check-in before closing the day..."
+                  className="todo-reflection-input"
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+          {selectedDateKey && (
             <div className="notes-block">
               <label className="notes-label" htmlFor="daily-notes">
                 Notes
@@ -1059,6 +1951,36 @@ export default function Diary() {
             >
               Continue
             </button>
+          </div>
+        </div>
+      )}
+
+      {badgeCelebration.show && celebrationBadge && (
+        <div className="badge-celebration-overlay" role="dialog" aria-live="polite">
+          <div className="badge-celebration-card" data-tone={celebrationBadge.tone}>
+            <div className="badge-celebration-icon">
+              <Sparkles size={26} />
+            </div>
+            <div className="badge-celebration-kicker">Badge unlocked</div>
+            <h2 className="badge-celebration-title">{celebrationBadge.name}</h2>
+            <p className="badge-celebration-desc">{celebrationBadge.description}</p>
+            <button
+              type="button"
+              className="badge-celebration-close"
+              onClick={() => {
+                if (badgeTimer.current) {
+                  clearTimeout(badgeTimer.current);
+                }
+                setBadgeCelebration({ show: false });
+              }}
+            >
+              Keep journaling
+            </button>
+            <div className="badge-confetti" aria-hidden="true">
+              {Array.from({ length: 14 }).map((_, index) => (
+                <span key={index} />
+              ))}
+            </div>
           </div>
         </div>
       )}

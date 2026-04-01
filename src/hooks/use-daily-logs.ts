@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { DailyLog } from '@/lib/types';
+import { DailyLog, DailyTodoItem } from '@/lib/types';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
@@ -9,6 +9,11 @@ export interface PinnedSongInput {
   artist?: string | null;
   coverUrl?: string | null;
   spotifyUrl?: string | null;
+}
+
+export interface DailyLogExtras {
+  todoItems?: DailyTodoItem[];
+  todoReflection?: string | null;
 }
 
 export function useDailyLogs() {
@@ -58,7 +63,13 @@ export function useDailyLogs() {
   }, [fetchLogs]);
 
   const upsertLog = useCallback(
-    async (date: string, pagesRead: number, notes?: string | null, pinnedSong?: PinnedSongInput | null) => {
+    async (
+      date: string,
+      pagesRead: number,
+      notes?: string | null,
+      pinnedSong?: PinnedSongInput | null,
+      extras?: DailyLogExtras | null
+    ) => {
       if (!isSupabaseConfigured || !supabase) {
         toast({
           title: 'Supabase not configured',
@@ -82,6 +93,8 @@ export function useDailyLogs() {
               date,
               pages_read: Math.max(0, Math.floor(pagesRead)),
               notes: notes ?? null,
+              todo_items: extras?.todoItems ?? null,
+              todo_reflection: extras?.todoReflection ?? null,
               spotify_track_id: pinnedSong?.spotifyTrackId?.trim() || null,
               song_title: pinnedSong?.title?.trim() || null,
               song_artist: pinnedSong?.artist?.trim() || null,

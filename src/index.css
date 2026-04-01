@@ -152,6 +152,47 @@ html.lenis body {
 }
 
 .diary-page {
+  --background: 40 33% 96%;
+  --foreground: 24 18% 18%;
+  --card: 40 40% 98%;
+  --card-foreground: 24 18% 18%;
+  --popover: 40 40% 98%;
+  --popover-foreground: 24 18% 18%;
+  --muted: 36 20% 92%;
+  --muted-foreground: 24 12% 45%;
+  --accent: 120 18% 32%;
+  --accent-foreground: 40 33% 97%;
+  --border: 30 18% 85%;
+  --input: 30 18% 85%;
+  --ring: 120 18% 32%;
+
+  --cal-bg: #f7f2ea;
+  --cal-surface: #fffaf3;
+  --cal-elevated: #fef7ee;
+  --cal-input: #f4ecdf;
+  --cal-deep: #efe4d6;
+  --cal-ink: #2a221a;
+  --cal-border: #e1d5c8;
+  --cal-border-light: #eee3d8;
+  --cal-text: #2a221a;
+  --cal-muted: #8a7a6a;
+  --cal-accent: #6f8f6f;
+  --cal-accent-dim: #dbe7db;
+  --cal-today-bg: #eaf2ea;
+  --cal-today-border: #a8c2a8;
+  --cal-hover: #f1e8dc;
+  --cal-movie: #a07a4c;
+  --cal-book: #5a7fa8;
+
+  min-height: 100vh;
+  background: var(--cal-bg);
+  color: var(--cal-text);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dark .diary-page {
   --background: 0 0% 6%;
   --foreground: 40 24% 92%;
   --card: 0 0% 9%;
@@ -168,6 +209,10 @@ html.lenis body {
 
   --cal-bg: #0e0e0e;
   --cal-surface: #151515;
+  --cal-elevated: #101010;
+  --cal-input: #0e0e0e;
+  --cal-deep: #0b0b0b;
+  --cal-ink: #0c0c0c;
   --cal-border: #2a2a2a;
   --cal-border-light: #1e1e1e;
   --cal-text: #f3efe7;
@@ -179,13 +224,6 @@ html.lenis body {
   --cal-hover: #1a1a1a;
   --cal-movie: #c4a882;
   --cal-book: #82a4c4;
-
-  min-height: 100vh;
-  background: var(--cal-bg);
-  color: var(--cal-text);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
 }
 
 .diary-page .calendar-wrapper {
@@ -200,6 +238,10 @@ html.lenis body {
 }
 
 .diary-page .calendar-wrapper.focus {
+  overflow-y: auto;
+}
+
+.diary-page .calendar-wrapper.achievements {
   overflow-y: auto;
 }
 
@@ -521,7 +563,7 @@ html.lenis body {
   align-items: center;
   gap: 0.5rem;
   border: 1px solid var(--cal-border);
-  background: #101010;
+  background: var(--cal-elevated);
   padding: 0.4rem 0.6rem;
   border-radius: 4px;
 }
@@ -606,7 +648,7 @@ html.lenis body {
   align-items: center;
   gap: 0.45rem;
   border: 1px solid var(--cal-border);
-  background: #101010;
+  background: var(--cal-elevated);
   border-radius: 4px;
   padding: 0.35rem 0.55rem;
   color: var(--cal-muted);
@@ -669,7 +711,7 @@ html.lenis body {
   width: 100%;
   border: none;
   border-bottom: 1px solid var(--cal-border-light);
-  background: #101010;
+  background: var(--cal-elevated);
   color: var(--cal-text);
   cursor: pointer;
   padding: 0.4rem 0.45rem;
@@ -741,7 +783,7 @@ html.lenis body {
   border: 1px solid var(--cal-border);
   border-radius: 4px;
   padding: 0.45rem;
-  background: #101010;
+  background: var(--cal-elevated);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -798,7 +840,7 @@ html.lenis body {
 .diary-page .notes-input {
   width: 100%;
   border: 1px solid var(--cal-border);
-  background: #101010;
+  background: var(--cal-input);
   color: var(--cal-text);
   font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.75rem;
@@ -812,6 +854,221 @@ html.lenis body {
   outline: 1px solid var(--cal-accent);
   outline-offset: -1px;
 }
+
+.diary-page .todo-block {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  border: 1px solid var(--cal-border);
+  background: var(--cal-elevated);
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+.diary-page .todo-header-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.diary-page .todo-sub {
+  margin-top: 0.25rem;
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cal-muted);
+}
+
+.diary-page .todo-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.65rem;
+  color: var(--cal-text);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.diary-page .todo-progress-label {
+  font-size: 0.5rem;
+  color: var(--cal-muted);
+  letter-spacing: 0.2em;
+}
+
+.diary-page .todo-progress-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--cal-border);
+  overflow: hidden;
+}
+
+.diary-page .todo-progress-bar span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, rgba(143, 188, 143, 0.9), rgba(138, 196, 170, 0.9));
+  transition: width 0.2s ease;
+}
+
+.diary-page .todo-input-row {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.diary-page .todo-input {
+  flex: 1;
+  border: 1px solid var(--cal-border);
+  background: var(--cal-input);
+  color: var(--cal-text);
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.7rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 4px;
+}
+
+.diary-page .todo-input:focus {
+  outline: 1px solid var(--cal-accent);
+  outline-offset: -1px;
+}
+
+.diary-page .todo-add {
+  border: 1px solid var(--cal-border);
+  background: transparent;
+  color: var(--cal-muted);
+  border-radius: 4px;
+  padding: 0.35rem 0.6rem;
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.diary-page .todo-add:hover {
+  color: var(--cal-text);
+}
+
+.diary-page .todo-add:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.diary-page .todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.diary-page .todo-empty {
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.6rem;
+  color: var(--cal-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.diary-page .todo-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  border: 1px solid var(--cal-border);
+  background: var(--cal-deep);
+  border-radius: 4px;
+  padding: 0.45rem 0.55rem;
+}
+
+.diary-page .todo-item.done .todo-text {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.diary-page .todo-check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1;
+  min-width: 140px;
+  font-size: 0.7rem;
+}
+
+.diary-page .todo-check input {
+  accent-color: var(--cal-accent);
+}
+
+.diary-page .todo-text {
+  font-size: 0.72rem;
+  color: var(--cal-text);
+}
+
+.diary-page .todo-rollover {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cal-muted);
+}
+
+.diary-page .todo-rollover input {
+  accent-color: var(--cal-accent);
+}
+
+.diary-page .todo-from {
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cal-muted);
+}
+
+.diary-page .todo-remove {
+  border: 1px solid var(--cal-border);
+  background: transparent;
+  color: var(--cal-muted);
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.diary-page .todo-remove:hover {
+  color: var(--cal-text);
+}
+
+.diary-page .todo-reflection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.diary-page .todo-reflection-input {
+  border: 1px solid var(--cal-border);
+  background: var(--cal-input);
+  color: var(--cal-text);
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.7rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 4px;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.diary-page .todo-reflection-input:focus {
+  outline: 1px solid var(--cal-accent);
+  outline-offset: -1px;
+}
+
 
 .diary-page .day-panel-close {
   position: absolute;
@@ -948,7 +1205,8 @@ html.lenis body {
   font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.55rem;
   letter-spacing: 0.32em;
-  color: rgba(138, 188, 138, 0.45);
+  color: var(--cal-accent);
+  opacity: 0.6;
   text-transform: uppercase;
   margin-top: 0.35rem;
   display: block;
@@ -1025,12 +1283,12 @@ html.lenis body {
   font-size: 0.52rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.2);
+  color: var(--cal-muted);
   transition: color 0.2s;
 }
 
 .diary-page .mc-legend-item.active {
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--cal-text);
 }
 
 .diary-page .mc-legend-dot {
@@ -1045,7 +1303,7 @@ html.lenis body {
   font-size: 0.52rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.2);
+  color: var(--cal-muted);
 }
 
 .diary-page .focus-mode {
@@ -1086,7 +1344,7 @@ html.lenis body {
   border-radius: 6px;
   padding: 0.2rem;
   gap: 0.2rem;
-  background: #101010;
+  background: var(--cal-elevated);
 }
 
 .diary-page .focus-preset-btn {
@@ -1173,6 +1431,308 @@ html.lenis body {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--cal-muted);
+}
+
+.diary-page .achievements-view {
+  margin: 0 2rem 2rem;
+  border: 1px solid var(--cal-border);
+  border-radius: 10px;
+  background: var(--cal-surface);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.diary-page .achievements-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.diary-page .achievements-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 2rem;
+  font-style: italic;
+}
+
+.diary-page .achievements-subtitle {
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--cal-muted);
+  margin-top: 0.35rem;
+}
+
+.diary-page .achievements-count {
+  text-align: right;
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+
+.diary-page .achievements-count-num {
+  font-size: 1.6rem;
+  color: var(--cal-accent);
+}
+
+.diary-page .achievements-count-total {
+  font-size: 0.7rem;
+  color: var(--cal-muted);
+  margin-left: 0.25rem;
+}
+
+.diary-page .achievements-count-label {
+  display: block;
+  font-size: 0.55rem;
+  color: var(--cal-muted);
+  margin-top: 0.35rem;
+}
+
+.diary-page .achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.diary-page .badge-card {
+  border: 1px solid var(--cal-border);
+  border-radius: 8px;
+  background: var(--cal-elevated);
+  padding: 1rem;
+  display: flex;
+  gap: 0.75rem;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.diary-page .badge-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--cal-accent);
+}
+
+.diary-page .badge-card.locked {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
+.diary-page .badge-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cal-ink);
+  background: linear-gradient(135deg, rgba(143, 188, 143, 0.9), rgba(138, 196, 170, 0.9));
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+}
+
+.diary-page .badge-card[data-tone="amber"] .badge-icon {
+  background: linear-gradient(135deg, rgba(212, 180, 106, 0.95), rgba(232, 196, 126, 0.85));
+}
+
+.diary-page .badge-card[data-tone="rose"] .badge-icon {
+  background: linear-gradient(135deg, rgba(196, 138, 170, 0.95), rgba(240, 172, 198, 0.85));
+}
+
+.diary-page .badge-card[data-tone="sky"] .badge-icon {
+  background: linear-gradient(135deg, rgba(120, 168, 212, 0.95), rgba(168, 208, 244, 0.85));
+}
+
+.diary-page .badge-card[data-tone="violet"] .badge-icon {
+  background: linear-gradient(135deg, rgba(134, 118, 204, 0.95), rgba(188, 170, 238, 0.85));
+}
+
+.diary-page .badge-card[data-tone="mint"] .badge-icon {
+  background: linear-gradient(135deg, rgba(124, 188, 170, 0.95), rgba(170, 222, 206, 0.85));
+}
+
+.diary-page .badge-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.diary-page .badge-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  color: var(--cal-text);
+}
+
+.diary-page .badge-desc {
+  font-size: 0.72rem;
+  color: var(--cal-muted);
+  line-height: 1.4;
+}
+
+.diary-page .badge-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cal-muted);
+}
+
+.diary-page .badge-category {
+  border: 1px solid var(--cal-border);
+  padding: 0.2rem 0.4rem;
+  border-radius: 999px;
+}
+
+.diary-page .badge-progress {
+  color: var(--cal-accent);
+}
+
+.badge-celebration-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 10, 0.82);
+  backdrop-filter: blur(6px);
+  animation: diaryFadeIn 0.35s ease-out forwards;
+}
+
+.badge-celebration-card {
+  position: relative;
+  background: var(--cal-elevated);
+  border: 1px solid var(--cal-border);
+  padding: 2.6rem 2.4rem;
+  width: min(360px, 90vw);
+  text-align: center;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.55);
+  animation: diaryScaleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.badge-celebration-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 1.2rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(143, 188, 143, 0.9), rgba(138, 196, 170, 0.9));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cal-ink);
+  box-shadow: 0 0 30px rgba(143, 188, 143, 0.25);
+}
+
+.badge-celebration-card[data-tone="amber"] .badge-celebration-icon {
+  background: linear-gradient(135deg, rgba(212, 180, 106, 0.95), rgba(232, 196, 126, 0.85));
+}
+
+.badge-celebration-card[data-tone="rose"] .badge-celebration-icon {
+  background: linear-gradient(135deg, rgba(196, 138, 170, 0.95), rgba(240, 172, 198, 0.85));
+}
+
+.badge-celebration-card[data-tone="sky"] .badge-celebration-icon {
+  background: linear-gradient(135deg, rgba(120, 168, 212, 0.95), rgba(168, 208, 244, 0.85));
+}
+
+.badge-celebration-card[data-tone="violet"] .badge-celebration-icon {
+  background: linear-gradient(135deg, rgba(134, 118, 204, 0.95), rgba(188, 170, 238, 0.85));
+}
+
+.badge-celebration-card[data-tone="mint"] .badge-celebration-icon {
+  background: linear-gradient(135deg, rgba(124, 188, 170, 0.95), rgba(170, 222, 206, 0.85));
+}
+
+.badge-celebration-kicker {
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cal-muted);
+  margin-bottom: 0.6rem;
+}
+
+.badge-celebration-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.8rem;
+  font-style: italic;
+  margin-bottom: 0.5rem;
+  color: var(--cal-text);
+}
+
+.badge-celebration-desc {
+  font-size: 0.75rem;
+  color: var(--cal-muted);
+  margin-bottom: 1.6rem;
+}
+
+.badge-celebration-close {
+  border: 1px solid var(--cal-border);
+  background: transparent;
+  color: var(--cal-text);
+  padding: 0.6rem 1rem;
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  width: 100%;
+  cursor: pointer;
+}
+
+.badge-confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.badge-confetti span {
+  position: absolute;
+  width: 6px;
+  height: 10px;
+  background: rgba(143, 188, 143, 0.9);
+  top: -10%;
+  left: 50%;
+  animation: badgeConfetti 1.8s ease-in-out forwards;
+  opacity: 0;
+}
+
+.badge-confetti span:nth-child(2n) {
+  background: rgba(212, 180, 106, 0.9);
+}
+
+.badge-confetti span:nth-child(3n) {
+  background: rgba(196, 138, 170, 0.9);
+}
+
+.badge-confetti span:nth-child(4n) {
+  background: rgba(120, 168, 212, 0.9);
+}
+
+.badge-confetti span:nth-child(1) { left: 15%; animation-delay: 0.05s; }
+.badge-confetti span:nth-child(2) { left: 30%; animation-delay: 0.15s; }
+.badge-confetti span:nth-child(3) { left: 45%; animation-delay: 0.08s; }
+.badge-confetti span:nth-child(4) { left: 60%; animation-delay: 0.18s; }
+.badge-confetti span:nth-child(5) { left: 72%; animation-delay: 0.12s; }
+.badge-confetti span:nth-child(6) { left: 85%; animation-delay: 0.22s; }
+.badge-confetti span:nth-child(7) { left: 20%; animation-delay: 0.28s; }
+.badge-confetti span:nth-child(8) { left: 38%; animation-delay: 0.32s; }
+.badge-confetti span:nth-child(9) { left: 52%; animation-delay: 0.26s; }
+.badge-confetti span:nth-child(10) { left: 68%; animation-delay: 0.36s; }
+.badge-confetti span:nth-child(11) { left: 78%; animation-delay: 0.42s; }
+.badge-confetti span:nth-child(12) { left: 90%; animation-delay: 0.3s; }
+.badge-confetti span:nth-child(13) { left: 10%; animation-delay: 0.46s; }
+.badge-confetti span:nth-child(14) { left: 95%; animation-delay: 0.5s; }
+
+@keyframes badgeConfetti {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(120%) rotate(220deg); opacity: 0; }
 }
 
 @keyframes diaryFadeIn {
@@ -1291,6 +1851,10 @@ html.lenis body {
     width: 100%;
     justify-content: space-between;
   }
+
+  .diary-page .achievements-view {
+    margin: 0 1.25rem 1.5rem;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1348,5 +1912,10 @@ html.lenis body {
 
   .diary-page .focus-actions {
     flex-wrap: wrap;
+  }
+
+  .diary-page .achievements-view {
+    margin: 0 1rem 1rem;
+    padding: 1.1rem;
   }
 }
