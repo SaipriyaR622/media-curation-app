@@ -1433,18 +1433,68 @@ html.lenis body {
   color: var(--cal-muted);
 }
 
-.diary-page .achievements-view {
+.public-achievements {
+  --cal-bg: #f7f2ea;
+  --cal-surface: #fffaf3;
+  --cal-elevated: #fef7ee;
+  --cal-input: #f4ecdf;
+  --cal-deep: #efe4d6;
+  --cal-ink: #2a221a;
+  --cal-border: #e1d5c8;
+  --cal-border-light: #eee3d8;
+  --cal-text: #2a221a;
+  --cal-muted: #8a7a6a;
+  --cal-accent: #6f8f6f;
+  --cal-accent-dim: #dbe7db;
+}
+
+.dark .public-achievements {
+  --cal-bg: #0e0e0e;
+  --cal-surface: #151515;
+  --cal-elevated: #101010;
+  --cal-input: #0e0e0e;
+  --cal-deep: #0b0b0b;
+  --cal-ink: #0c0c0c;
+  --cal-border: #2a2a2a;
+  --cal-border-light: #1e1e1e;
+  --cal-text: #f3efe7;
+  --cal-muted: #5f5f5f;
+  --cal-accent: #8fbc8f;
+  --cal-accent-dim: #355035;
+}
+
+:is(.diary-page, .public-achievements) .achievements-view {
   margin: 0 2rem 2rem;
   border: 1px solid var(--cal-border);
   border-radius: 10px;
-  background: var(--cal-surface);
+  background: linear-gradient(150deg, rgba(255, 250, 243, 0.92), rgba(240, 231, 218, 0.9));
+  position: relative;
+  overflow: hidden;
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
 
-.diary-page .achievements-header {
+.dark :is(.diary-page, .public-achievements) .achievements-view {
+  background: linear-gradient(150deg, rgba(21, 24, 22, 0.96), rgba(10, 12, 10, 0.96));
+}
+
+:is(.diary-page, .public-achievements) .achievements-view::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='none' stroke='%23c6b59e' stroke-width='0.6' stroke-opacity='0.2'%3E%3Cpath d='M24 62c18-14 52-14 70 0 20 16 40 12 58-6'/%3E%3Cpath d='M30 140c22-10 46-8 64 6 16 12 34 14 54 4'/%3E%3Cpath d='M130 30c-14 20-6 48 14 62 16 10 20 30 10 48'/%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.dark :is(.diary-page, .public-achievements) .achievements-view::before {
+  opacity: 0.12;
+  filter: grayscale(1);
+}
+
+:is(.diary-page, .public-achievements) .achievements-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1452,13 +1502,13 @@ html.lenis body {
   flex-wrap: wrap;
 }
 
-.diary-page .achievements-title {
+:is(.diary-page, .public-achievements) .achievements-title {
   font-family: 'Playfair Display', serif;
   font-size: 2rem;
   font-style: italic;
 }
 
-.diary-page .achievements-subtitle {
+:is(.diary-page, .public-achievements) .achievements-subtitle {
   font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.6rem;
   letter-spacing: 0.22em;
@@ -1467,58 +1517,88 @@ html.lenis body {
   margin-top: 0.35rem;
 }
 
-.diary-page .achievements-count {
+:is(.diary-page, .public-achievements) .achievements-count {
   text-align: right;
   font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   text-transform: uppercase;
   letter-spacing: 0.2em;
 }
 
-.diary-page .achievements-count-num {
+:is(.diary-page, .public-achievements) .achievements-count-num {
   font-size: 1.6rem;
   color: var(--cal-accent);
 }
 
-.diary-page .achievements-count-total {
+:is(.diary-page, .public-achievements) .achievements-count-total {
   font-size: 0.7rem;
   color: var(--cal-muted);
   margin-left: 0.25rem;
 }
 
-.diary-page .achievements-count-label {
+:is(.diary-page, .public-achievements) .achievements-count-label {
   display: block;
   font-size: 0.55rem;
   color: var(--cal-muted);
   margin-top: 0.35rem;
 }
 
-.diary-page .achievements-grid {
+:is(.diary-page, .public-achievements) .achievements-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
 }
 
-.diary-page .badge-card {
+:is(.diary-page, .public-achievements) .badge-card {
   border: 1px solid var(--cal-border);
   border-radius: 8px;
-  background: var(--cal-elevated);
+  background: linear-gradient(160deg, rgba(255, 250, 243, 0.96), rgba(240, 231, 218, 0.98));
   padding: 1rem;
   display: flex;
   gap: 0.75rem;
   transition: transform 0.15s ease, border-color 0.15s ease;
+  position: relative;
+  overflow: hidden;
 }
 
-.diary-page .badge-card:hover {
+.dark :is(.diary-page, .public-achievements) .badge-card {
+  background: linear-gradient(160deg, rgba(20, 22, 20, 0.98), rgba(12, 12, 12, 0.98));
+}
+
+:is(.diary-page, .public-achievements) .badge-card:hover {
   transform: translateY(-2px);
   border-color: var(--cal-accent);
 }
 
-.diary-page .badge-card.locked {
+:is(.diary-page, .public-achievements) .badge-card.locked {
   opacity: 0.5;
   filter: grayscale(1);
 }
 
-.diary-page .badge-icon {
+:is(.diary-page, .public-achievements) .badge-card::before {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border: 1px dashed rgba(138, 122, 106, 0.45);
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.dark :is(.diary-page, .public-achievements) .badge-card::before {
+  border-color: rgba(120, 120, 120, 0.35);
+}
+
+:is(.diary-page, .public-achievements) .badge-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 30% 30%, rgba(111, 143, 111, 0.12), transparent 55%),
+    radial-gradient(circle at 80% 20%, rgba(160, 122, 76, 0.12), transparent 60%);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+:is(.diary-page, .public-achievements) .badge-icon {
   width: 44px;
   height: 44px;
   border-radius: 12px;
@@ -1526,50 +1606,51 @@ html.lenis body {
   align-items: center;
   justify-content: center;
   color: var(--cal-ink);
-  background: linear-gradient(135deg, rgba(143, 188, 143, 0.9), rgba(138, 196, 170, 0.9));
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
+  background: radial-gradient(circle at 30% 30%, rgba(250, 245, 232, 0.95), rgba(210, 196, 176, 0.95));
+  border: 1px solid rgba(138, 122, 106, 0.5);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35), 0 8px 18px rgba(0, 0, 0, 0.18);
   flex-shrink: 0;
 }
 
-.diary-page .badge-card[data-tone="amber"] .badge-icon {
-  background: linear-gradient(135deg, rgba(212, 180, 106, 0.95), rgba(232, 196, 126, 0.85));
+:is(.diary-page, .public-achievements) .badge-card[data-tone="amber"] .badge-icon {
+  background: radial-gradient(circle at 30% 30%, rgba(255, 237, 194, 0.95), rgba(212, 180, 106, 0.9));
 }
 
-.diary-page .badge-card[data-tone="rose"] .badge-icon {
-  background: linear-gradient(135deg, rgba(196, 138, 170, 0.95), rgba(240, 172, 198, 0.85));
+:is(.diary-page, .public-achievements) .badge-card[data-tone="rose"] .badge-icon {
+  background: radial-gradient(circle at 30% 30%, rgba(252, 222, 232, 0.95), rgba(196, 138, 170, 0.9));
 }
 
-.diary-page .badge-card[data-tone="sky"] .badge-icon {
-  background: linear-gradient(135deg, rgba(120, 168, 212, 0.95), rgba(168, 208, 244, 0.85));
+:is(.diary-page, .public-achievements) .badge-card[data-tone="sky"] .badge-icon {
+  background: radial-gradient(circle at 30% 30%, rgba(220, 236, 252, 0.95), rgba(120, 168, 212, 0.9));
 }
 
-.diary-page .badge-card[data-tone="violet"] .badge-icon {
-  background: linear-gradient(135deg, rgba(134, 118, 204, 0.95), rgba(188, 170, 238, 0.85));
+:is(.diary-page, .public-achievements) .badge-card[data-tone="violet"] .badge-icon {
+  background: radial-gradient(circle at 30% 30%, rgba(226, 218, 250, 0.95), rgba(134, 118, 204, 0.9));
 }
 
-.diary-page .badge-card[data-tone="mint"] .badge-icon {
-  background: linear-gradient(135deg, rgba(124, 188, 170, 0.95), rgba(170, 222, 206, 0.85));
+:is(.diary-page, .public-achievements) .badge-card[data-tone="mint"] .badge-icon {
+  background: radial-gradient(circle at 30% 30%, rgba(215, 245, 236, 0.95), rgba(124, 188, 170, 0.9));
 }
 
-.diary-page .badge-body {
+:is(.diary-page, .public-achievements) .badge-body {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
 }
 
-.diary-page .badge-name {
+:is(.diary-page, .public-achievements) .badge-name {
   font-family: 'Playfair Display', serif;
   font-size: 1.1rem;
   color: var(--cal-text);
 }
 
-.diary-page .badge-desc {
+:is(.diary-page, .public-achievements) .badge-desc {
   font-size: 0.72rem;
   color: var(--cal-muted);
   line-height: 1.4;
 }
 
-.diary-page .badge-meta {
+:is(.diary-page, .public-achievements) .badge-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1581,14 +1662,20 @@ html.lenis body {
   color: var(--cal-muted);
 }
 
-.diary-page .badge-category {
-  border: 1px solid var(--cal-border);
-  padding: 0.2rem 0.4rem;
+:is(.diary-page, .public-achievements) .badge-category {
+  border: 1px solid rgba(138, 122, 106, 0.5);
+  padding: 0.2rem 0.55rem;
   border-radius: 999px;
+  background: rgba(255, 250, 243, 0.7);
 }
 
-.diary-page .badge-progress {
+:is(.diary-page, .public-achievements) .badge-progress {
   color: var(--cal-accent);
+}
+
+.dark :is(.diary-page, .public-achievements) .badge-category {
+  background: rgba(12, 12, 12, 0.6);
+  border-color: rgba(120, 120, 120, 0.4);
 }
 
 .badge-celebration-overlay {
@@ -1852,7 +1939,7 @@ html.lenis body {
     justify-content: space-between;
   }
 
-  .diary-page .achievements-view {
+  :is(.diary-page, .public-achievements) .achievements-view {
     margin: 0 1.25rem 1.5rem;
   }
 }
@@ -1914,7 +2001,7 @@ html.lenis body {
     flex-wrap: wrap;
   }
 
-  .diary-page .achievements-view {
+  :is(.diary-page, .public-achievements) .achievements-view {
     margin: 0 1rem 1rem;
     padding: 1.1rem;
   }

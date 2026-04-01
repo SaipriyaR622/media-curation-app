@@ -24,6 +24,7 @@ import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { DailyTodoItem } from '@/lib/types';
 import { useConservatory } from '@/hooks/use-conservatory';
 import { FocusMode } from '@/components/FocusMode';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import {
   beginSpotifyLogin,
   getCurrentlyPlayingTrack,
@@ -69,11 +70,14 @@ type Badge = {
   description: string;
   category: string;
   Icon: LucideIcon;
+  icon: string;
   unlocked: boolean;
   hidden?: boolean;
   progress?: string;
   tone?: 'sage' | 'amber' | 'rose' | 'sky' | 'violet' | 'mint';
 };
+
+type BadgePayload = Omit<Badge, 'Icon'>;
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -465,6 +469,7 @@ export default function Diary() {
   const songSearchCacheRef = useRef<Map<string, SpotifyTrackResult[]>>(new Map());
   const achievementTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const badgeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const badgeSyncRef = useRef<string>('');
   const { plants, spentEnergy, updatePlantsAndEnergy, loading } = useConservatory();
 
   const entries = useMemo(() => {
@@ -1176,6 +1181,7 @@ export default function Diary() {
       description: 'Write your very first diary entry.',
       category: 'Onboarding',
       Icon: Feather,
+      icon: 'Feather',
       unlocked: diaryEntryDates.length > 0,
       progress: `${Math.min(diaryEntryDates.length, 1)}/1`,
       tone: 'sage',
@@ -1186,6 +1192,7 @@ export default function Diary() {
       description: 'Write in the diary for 3 consecutive days.',
       category: 'Consistency',
       Icon: Flame,
+      icon: 'Flame',
       unlocked: longestStreak >= 3,
       progress: `${Math.min(longestStreak, 3)}/3 days`,
       tone: 'amber',
@@ -1196,6 +1203,7 @@ export default function Diary() {
       description: 'Maintain a 30-day journaling streak.',
       category: 'Consistency',
       Icon: Trophy,
+      icon: 'Trophy',
       unlocked: longestStreak >= 30,
       progress: `${Math.min(longestStreak, 30)}/30 days`,
       tone: 'rose',
@@ -1206,6 +1214,7 @@ export default function Diary() {
       description: 'Complete 100% of your daily to-do list for a week.',
       category: 'Productivity',
       Icon: CheckCircle2,
+      icon: 'CheckCircle2',
       unlocked: taskMasterStreak >= 7,
       progress: `${Math.min(taskMasterStreak, 7)}/7 days`,
       tone: 'mint',
@@ -1216,6 +1225,7 @@ export default function Diary() {
       description: 'Write an entry between 12:00 AM and 3:00 AM.',
       category: 'Behavioral',
       Icon: Moon,
+      icon: 'Moon',
       unlocked: hasNightOwl,
       progress: hasNightOwl ? 'Unlocked' : '12:00 AM - 3:00 AM',
       tone: 'violet',
@@ -1226,6 +1236,7 @@ export default function Diary() {
       description: 'Write an entry before 7:00 AM.',
       category: 'Behavioral',
       Icon: Sun,
+      icon: 'Sun',
       unlocked: hasEarlyBird,
       progress: hasEarlyBird ? 'Unlocked' : 'Before 7:00 AM',
       tone: 'amber',
@@ -1236,6 +1247,7 @@ export default function Diary() {
       description: 'Write an entry that exceeds 500 words.',
       category: 'Volume',
       Icon: BookOpen,
+      icon: 'BookOpen',
       unlocked: maxWordCount >= 500,
       progress: `${Math.min(maxWordCount, 500)}/500 words`,
       tone: 'sky',
@@ -1246,6 +1258,7 @@ export default function Diary() {
       description: 'Keep the diary active for a full 365 days.',
       category: 'Milestone',
       Icon: Award,
+      icon: 'Award',
       unlocked: diaryEntryDates.length >= 365,
       progress: `${Math.min(diaryEntryDates.length, 365)}/365 days`,
       tone: 'sage',
@@ -1256,6 +1269,7 @@ export default function Diary() {
       description: 'Reach 100 total diary entries.',
       category: 'Milestone',
       Icon: Trophy,
+      icon: 'Trophy',
       unlocked: diaryEntryCount >= 100,
       progress: `${Math.min(diaryEntryCount, 100)}/100 entries`,
       tone: 'amber',
@@ -1266,6 +1280,7 @@ export default function Diary() {
       description: 'Write an entry after missing 7 or more days.',
       category: 'Consistency',
       Icon: Flame,
+      icon: 'Flame',
       unlocked: comebackGap >= 7,
       progress: `${Math.min(comebackGap, 7)}/7 missed days`,
       tone: 'rose',
@@ -1276,6 +1291,7 @@ export default function Diary() {
       description: 'Log an entry on both Saturday and Sunday for a month.',
       category: 'Consistency',
       Icon: Sun,
+      icon: 'Sun',
       unlocked: weekendWarrior.unlocked,
       progress: `${Math.min(weekendWarrior.best, 2)}/2 weekend days`,
       tone: 'amber',
@@ -1286,6 +1302,7 @@ export default function Diary() {
       description: 'Write at least one entry in Spring, Summer, Autumn, and Winter.',
       category: 'Consistency',
       Icon: Award,
+      icon: 'Award',
       unlocked: seasonalProgress.count >= 4,
       progress: `${Math.min(seasonalProgress.count, 4)}/4 seasons`,
       tone: 'sage',
@@ -1296,6 +1313,7 @@ export default function Diary() {
       description: 'Pin 10 songs to your daily entries.',
       category: 'Hidden',
       Icon: Music2,
+      icon: 'Music2',
       unlocked: pinnedSongCount >= 10,
       progress: `${Math.min(pinnedSongCount, 10)}/10 songs`,
       tone: 'sky',
@@ -1307,6 +1325,7 @@ export default function Diary() {
       description: 'Bloom 5 plants in the conservatory.',
       category: 'Hidden',
       Icon: Sparkles,
+      icon: 'Sparkles',
       unlocked: bloomedCount >= 5,
       progress: `${Math.min(bloomedCount, 5)}/5 blooms`,
       tone: 'mint',
@@ -1318,6 +1337,7 @@ export default function Diary() {
       description: 'Complete a task that rolled over for 3 or more days.',
       category: 'Productivity',
       Icon: CheckCircle2,
+      icon: 'CheckCircle2',
       unlocked: todoBadges.maxOverdueDays >= 3,
       progress: `${Math.min(todoBadges.maxOverdueDays, 3)}/3 days`,
       tone: 'mint',
@@ -1328,6 +1348,7 @@ export default function Diary() {
       description: 'Complete 5 or more tasks in a single day.',
       category: 'Productivity',
       Icon: CheckCircle2,
+      icon: 'CheckCircle2',
       unlocked: todoBadges.maxDone >= 5,
       progress: `${Math.min(todoBadges.maxDone, 5)}/5 tasks`,
       tone: 'mint',
@@ -1338,6 +1359,7 @@ export default function Diary() {
       description: 'Finish a week with absolutely zero rollover tasks.',
       category: 'Productivity',
       Icon: CheckCircle2,
+      icon: 'CheckCircle2',
       unlocked: todoBadges.cleanSlateBest >= 7,
       progress: `${Math.min(todoBadges.cleanSlateBest, 7)}/7 days`,
       tone: 'sage',
@@ -1348,6 +1370,7 @@ export default function Diary() {
       description: 'Complete a task within 1 hour of adding it.',
       category: 'Productivity',
       Icon: CheckCircle2,
+      icon: 'CheckCircle2',
       unlocked: todoBadges.taskSniper,
       progress: todoBadges.taskSniper ? 'Unlocked' : 'Within 1 hour',
       tone: 'sky',
@@ -1358,6 +1381,7 @@ export default function Diary() {
       description: 'Hit a lifetime total of 50,000 words written across all entries.',
       category: 'Writing',
       Icon: BookOpen,
+      icon: 'BookOpen',
       unlocked: totalWordCount >= 50000,
       progress: `${Math.min(totalWordCount, 50000)}/50000 words`,
       tone: 'sky',
@@ -1368,6 +1392,7 @@ export default function Diary() {
       description: 'Save an entry that is one sentence or under 10 words.',
       category: 'Writing',
       Icon: Feather,
+      icon: 'Feather',
       unlocked: minimalistUnlocked,
       progress: minimalistUnlocked ? 'Unlocked' : 'Under 10 words',
       tone: 'rose',
@@ -1378,6 +1403,7 @@ export default function Diary() {
       description: 'Use "grateful", "thankful", or "blessed" in 10 different entries.',
       category: 'Writing',
       Icon: Sparkles,
+      icon: 'Sparkles',
       unlocked: gratitudeCount >= 10,
       progress: `${Math.min(gratitudeCount, 10)}/10 entries`,
       tone: 'amber',
@@ -1438,6 +1464,54 @@ export default function Diary() {
     () => badges.find((badge) => badge.id === badgeCelebration.badgeId),
     [badges, badgeCelebration.badgeId]
   );
+
+  const badgePayload = useMemo<BadgePayload[]>(
+    () => badges.map(({ Icon, ...rest }) => rest),
+    [badges]
+  );
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      return;
+    }
+
+    let isActive = true;
+    const persistBadges = async () => {
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error || !data.user) {
+          return;
+        }
+
+        const payload = JSON.stringify(badgePayload);
+        if (payload === badgeSyncRef.current) {
+          return;
+        }
+        badgeSyncRef.current = payload;
+
+        await supabase
+          .from('diary_achievements')
+          .upsert(
+            {
+              user_id: data.user.id,
+              badges: badgePayload,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id' }
+          );
+      } catch (err) {
+        if (isActive) {
+          console.error('Failed to sync diary achievements', err);
+        }
+      }
+    };
+
+    void persistBadges();
+
+    return () => {
+      isActive = false;
+    };
+  }, [badgePayload]);
 
 
   return (
