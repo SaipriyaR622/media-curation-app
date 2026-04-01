@@ -199,6 +199,10 @@ html.lenis body {
   overflow-y: auto;
 }
 
+.diary-page .calendar-wrapper.focus {
+  overflow-y: auto;
+}
+
 .diary-page .diary-view-switch {
   display: inline-flex;
   align-self: flex-start;
@@ -1044,6 +1048,133 @@ html.lenis body {
   color: rgba(255, 255, 255, 0.2);
 }
 
+.diary-page .focus-mode {
+  padding: 0 2rem 2rem;
+}
+
+.diary-page .focus-card {
+  border: 1px solid var(--cal-border);
+  border-radius: 8px;
+  background: var(--cal-surface);
+  padding: 1.25rem;
+  max-width: 560px;
+}
+
+.diary-page .focus-header {
+  margin-bottom: 0.9rem;
+}
+
+.diary-page .focus-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 2rem;
+  line-height: 1;
+  font-style: italic;
+}
+
+.diary-page .focus-subtitle {
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cal-muted);
+  margin-top: 0.45rem;
+}
+
+.diary-page .focus-presets {
+  display: inline-flex;
+  border: 1px solid var(--cal-border);
+  border-radius: 6px;
+  padding: 0.2rem;
+  gap: 0.2rem;
+  background: #101010;
+}
+
+.diary-page .focus-preset-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--cal-muted);
+  border-radius: 4px;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.diary-page .focus-preset-btn.active {
+  color: var(--cal-accent);
+  border-color: var(--cal-accent);
+  background: var(--cal-accent-dim);
+}
+
+.diary-page .focus-preset-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.diary-page .focus-session-label {
+  margin-top: 1.1rem;
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cal-muted);
+}
+
+.diary-page .focus-time {
+  margin-top: 0.35rem;
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(3rem, 10vw, 5.2rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--cal-text);
+}
+
+.diary-page .focus-actions {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.diary-page .focus-action-btn {
+  border: 1px solid var(--cal-border);
+  background: transparent;
+  color: var(--cal-text);
+  border-radius: 4px;
+  padding: 0.48rem 0.7rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.diary-page .focus-action-btn.primary {
+  color: var(--cal-accent);
+  border-color: var(--cal-accent);
+}
+
+.diary-page .focus-action-btn:hover {
+  border-color: var(--cal-accent);
+}
+
+.diary-page .focus-stats {
+  margin-top: 0.95rem;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cal-muted);
+}
+
 @keyframes diaryFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -1205,5 +1336,17 @@ html.lenis body {
 
   .diary-page .mc-footer {
     padding: 0.6rem 1rem;
+  }
+
+  .diary-page .focus-mode {
+    padding: 0 1rem 1rem;
+  }
+
+  .diary-page .focus-card {
+    padding: 1rem;
+  }
+
+  .diary-page .focus-actions {
+    flex-wrap: wrap;
   }
 }

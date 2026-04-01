@@ -5,6 +5,7 @@ import { useBooks } from '@/hooks/use-books';
 import { useMovies } from '@/hooks/use-movies';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { useConservatory } from '@/hooks/use-conservatory';
+import { FocusMode } from '@/components/FocusMode';
 import {
   beginSpotifyLogin,
   getCurrentlyPlayingTrack,
@@ -41,7 +42,7 @@ interface PinnedSong {
 }
 
 type FlowerType = 'Daisy' | 'Poppy' | 'Cosmos' | 'Tulip' | 'Wildgrass';
-type DiaryView = 'calendar' | 'conservatory';
+type DiaryView = 'calendar' | 'conservatory' | 'focus';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -52,6 +53,7 @@ const DAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DIARY_VIEWS: { key: DiaryView; label: string }[] = [
   { key: 'calendar', label: 'Calendar' },
   { key: 'conservatory', label: 'Midnight Conservatory' },
+  { key: 'focus', label: 'Focus Mode' },
 ];
 
 function toDateKey(date: Date) {
@@ -319,6 +321,7 @@ export default function Diary() {
   const [songSearchError, setSongSearchError] = useState('');
   const [loadingCurrentSong, setLoadingCurrentSong] = useState(false);
   const [selectedPinnedSong, setSelectedPinnedSong] = useState<PinnedSong | null>(null);
+  const songSearchCacheRef = useRef<Map<string, SpotifyTrackResult[]>>(new Map());
   const achievementTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { plants, spentEnergy, updatePlantsAndEnergy, loading } = useConservatory();
 
@@ -398,14 +401,34 @@ export default function Diary() {
   const stats = useMemo(() => {
     const activeDays = new Set<string>();
     let totalEntries = 0;
+
     entries.forEach((entry) => {
       if (entry.date.startsWith(monthKeyPrefix)) {
         totalEntries += 1;
         activeDays.add(entry.date);
       }
     });
+
+    const monthLogs = logs.filter((log) => {
+      if (!log.date.startsWith(monthKeyPrefix)) {
+        return false;
+      }
+      return (
+        (log.pages_read ?? 0) > 0 ||
+        Boolean(log.notes?.trim()) ||
+        Boolean(log.spotify_track_id) ||
+        Boolean(log.song_title) ||
+        Boolean(log.song_cover_url)
+      );
+    });
+
+    monthLogs.forEach((log) => {
+      activeDays.add(log.date);
+      totalEntries += 1;
+    });
+
     return { activeDays: activeDays.size, totalEntries };
-  }, [entries, monthKeyPrefix]);
+  }, [entries, logs, monthKeyPrefix]);
 
   useEffect(() => {
     setSelectedDateKey(null);
@@ -420,10 +443,11 @@ export default function Diary() {
   }, []);
 
   useEffect(() => {
-    if (activeView === 'conservatory') {
+    if (activeView !== 'calendar') {
       setSelectedDateKey(null);
     }
   }, [activeView]);
+
 
   const totalLumens = useMemo(() => logs.reduce((sum, log) => sum + (log.pages_read || 0), 0), [logs]);
   const availableLumens = totalLumens - spentEnergy;
@@ -472,8 +496,16 @@ export default function Diary() {
   }, [selectedDateKey, selectedLog]);
 
   useEffect(() => {
-    if (!selectedDateKey || songQuery.trim().length < 2) {
+    const normalizedQuery = songQuery.trim().toLowerCase();
+    if (!selectedDateKey || normalizedQuery.length < 2) {
       setSongResults([]);
+      setSongSearchLoading(false);
+      return;
+    }
+
+    const cached = songSearchCacheRef.current.get(normalizedQuery);
+    if (cached) {
+      setSongResults(cached);
       setSongSearchLoading(false);
       return;
     }
@@ -482,7 +514,8 @@ export default function Diary() {
       setSongSearchLoading(true);
       setSongSearchError('');
       try {
-        const tracks = await searchSpotifyTracks(songQuery.trim());
+        const tracks = await searchSpotifyTracks(normalizedQuery);
+        songSearchCacheRef.current.set(normalizedQuery, tracks);
         setSongResults(tracks);
       } catch {
         setSongResults([]);
@@ -490,7 +523,7 @@ export default function Diary() {
       } finally {
         setSongSearchLoading(false);
       }
-    }, 350);
+    }, 180);
 
     return () => clearTimeout(timer);
   }, [selectedDateKey, songQuery]);
@@ -531,7 +564,8 @@ export default function Diary() {
             src={dayLog.song_cover_url}
             alt={`${dayLog.song_title || 'Pinned song'} cover`}
             className="cell-song-cover"
-            loading="lazy"
+            loading="eager"
+            decoding="async"
           />
         )}
         {dayEntries.length > 0 && <span className="cell-dot" />}
@@ -658,6 +692,7 @@ export default function Diary() {
     (selectedPinnedSong?.artist ?? '') !== (selectedLog?.song_artist ?? '') ||
     (selectedPinnedSong?.coverUrl ?? '') !== (selectedLog?.song_cover_url ?? '') ||
     (selectedPinnedSong?.spotifyUrl ?? '') !== (selectedLog?.song_spotify_url ?? '');
+
 
   return (
     <div className="diary-page">
@@ -807,6 +842,10 @@ export default function Diary() {
             </footer>
           </section>
         )}
+
+        {activeView === 'focus' && (
+          <FocusMode />
+        )}
       </div>
 
       <div className={`day-panel ${selectedDateKey && activeView === 'calendar' ? 'open' : ''}`}>
@@ -912,7 +951,7 @@ export default function Diary() {
                           onClick={() => applySpotifyTrack(track)}
                         >
                           {track.coverUrl ? (
-                            <img src={track.coverUrl} alt={track.title} className="song-result-cover" />
+                            <img src={track.coverUrl} alt={track.title} className="song-result-cover" loading="eager" decoding="async" />
                           ) : (
                             <div className="song-result-cover placeholder">
                               <Music2 size={12} />
@@ -938,7 +977,13 @@ export default function Diary() {
               {selectedPinnedSong && (
                 <div className="song-selected">
                   {selectedPinnedSong.coverUrl ? (
-                    <img src={selectedPinnedSong.coverUrl} alt={selectedPinnedSong.title} className="song-selected-cover" />
+                    <img
+                      src={selectedPinnedSong.coverUrl}
+                      alt={selectedPinnedSong.title}
+                      className="song-selected-cover"
+                      loading="eager"
+                      decoding="async"
+                    />
                   ) : (
                     <div className="song-selected-cover placeholder">
                       <Music2 size={14} />
