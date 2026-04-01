@@ -67,6 +67,21 @@ export interface Movie {
   dateAdded: string;
 }
 
+export interface DailyLog {
+  id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD
+  pages_read: number;
+  notes?: string;
+  spotify_track_id?: string;
+  song_title?: string;
+  song_artist?: string;
+  song_cover_url?: string;
+  song_spotify_url?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Song {
   id: string;
   title: string;
