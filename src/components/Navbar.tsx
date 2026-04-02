@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { MapPin, Search } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 
@@ -35,13 +35,11 @@ export function Navbar() {
     { label: 'Movies', path: '/library/movies' },
     { label: 'Songs', path: '/library/songs' },
     { label: 'Diary', path: '/library/diary' },
-    { label: 'Resources', path: '/resources' },
     { label: 'Profile', path: '/profile' },
   ];
 
   const activeIndex = links.findIndex(link =>
     location.pathname === link.path ||
-    (link.path === '/resources' && location.pathname.startsWith('/resources')) ||
     (link.path.includes('books') && location.pathname.startsWith('/book/')) ||
     (link.path.includes('movies') && location.pathname.startsWith('/movie/')) ||
     (link.path.includes('songs') && location.pathname.startsWith('/library/songs')) ||
@@ -111,6 +109,14 @@ export function Navbar() {
               {isMac ? 'Cmd+K' : 'Ctrl+K'}
             </span>
           </button>
+          <Link
+            to="/resources"
+            className="inline-flex items-center justify-center border border-border px-2.5 py-2 text-muted-foreground transition-colors hover:text-foreground"
+            aria-label="Resources"
+            title="Resources"
+          >
+            <MapPin className="h-3.5 w-3.5" />
+          </Link>
           <button
             type="button"
             onClick={handleLogout}

@@ -1,6 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BookOpen, Clapperboard, Search, Star, UserCheck, UserPlus } from "lucide-react";
+import {
+  ArrowLeft,
+  Award,
+  BookOpen,
+  CheckCircle2,
+  Clapperboard,
+  Feather,
+  Flame,
+  Moon,
+  Music2,
+  Search,
+  Sparkles,
+  Star,
+  Sun,
+  Trophy,
+  UserCheck,
+  UserPlus,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { type FollowableProfile, useProfile } from "@/hooks/use-profile";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
@@ -74,6 +92,23 @@ interface MovieDiaryRow {
   created_at: string;
 }
 
+interface AchievementsRow {
+  badges: unknown;
+}
+
+type Badge = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  Icon: LucideIcon;
+  icon: string;
+  unlocked: boolean;
+  progress?: string;
+  tone?: "sage" | "amber" | "rose" | "sky" | "violet" | "mint";
+  hidden?: boolean;
+};
+
 const CANVAS_HEIGHT = 2200;
 
 const TAPE_ARTWORK: Record<Exclude<CanvasItem["decorVariant"], "paperclip">, string> = {
@@ -99,6 +134,43 @@ function formatDiaryDate(value: string) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+const BADGE_ICON_MAP: Record<string, LucideIcon> = {
+  Award,
+  BookOpen,
+  CheckCircle2,
+  Feather,
+  Flame,
+  Moon,
+  Music2,
+  Sparkles,
+  Sun,
+  Trophy,
+};
+
+function normalizeBadgePayload(value: unknown): Badge[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      const candidate = (entry ?? {}) as Partial<Badge>;
+      if (!candidate.id || !candidate.name || !candidate.description || !candidate.category || !candidate.icon) {
+        return null;
+      }
+      return {
+        id: String(candidate.id),
+        name: String(candidate.name),
+        description: String(candidate.description),
+        category: String(candidate.category),
+        icon: String(candidate.icon),
+        Icon: BADGE_ICON_MAP[String(candidate.icon)] ?? Award,
+        unlocked: Boolean(candidate.unlocked),
+        progress: typeof candidate.progress === "string" ? candidate.progress : "",
+        tone: candidate.tone,
+        hidden: Boolean(candidate.hidden),
+      } as Badge;
+    })
+    .filter((entry): entry is Badge => Boolean(entry));
 }
 
 function normalizeCanvasItem(value: unknown): CanvasItem | null {
@@ -135,6 +207,8 @@ export default function PublicProfile() {
   const [profile, setProfile] = useState<FollowableProfile | null>(null);
   const [canvasItems, setCanvasItems] = useState<CanvasItem[]>([]);
   const [diaryEntries, setDiaryEntries] = useState<DiaryItem[]>([]);
+  const [publicBadges, setPublicBadges] = useState<Badge[]>([]);
+  const [achievementsReady, setAchievementsReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -159,13 +233,22 @@ export default function PublicProfile() {
       setError("");
 
       try {
-        const [profileResult, canvasResult, booksResult, bookDiaryResult, moviesResult, movieDiaryResult] = await Promise.all([
+        const [
+          profileResult,
+          canvasResult,
+          booksResult,
+          bookDiaryResult,
+          moviesResult,
+          movieDiaryResult,
+          achievementsResult,
+        ] = await Promise.all([
           supabase.from("profiles").select("id,name,bio,avatar_url").eq("id", userId).maybeSingle(),
           supabase.from("profile_canvas_items").select("items").eq("user_id", userId).maybeSingle(),
           supabase.from("books").select("id,title,author").eq("user_id", userId),
           supabase.from("book_diary_entries").select("id,book_id,read_on,rating,review,reread,created_at").eq("user_id", userId),
           supabase.from("movies").select("id,title,director").eq("user_id", userId),
           supabase.from("movie_diary_entries").select("id,movie_id,watched_on,rating,review,rewatch,created_at").eq("user_id", userId),
+          supabase.from("diary_achievements").select("badges").eq("user_id", userId).maybeSingle(),
         ]);
 
         if (!isActive) {
@@ -214,6 +297,19 @@ export default function PublicProfile() {
               .sort((a, b) => b.zIndex - a.zIndex)
           : [];
         setCanvasItems(mappedCanvas);
+
+        if (achievementsResult.error) {
+          const code = (achievementsResult.error as { code?: string }).code;
+          if (code !== "42501" && code !== "42P01") {
+            console.warn("Failed to load achievements", achievementsResult.error.message);
+          }
+          setPublicBadges([]);
+          setAchievementsReady(true);
+        } else {
+          const badgesRaw = (achievementsResult.data as AchievementsRow | null)?.badges;
+          setPublicBadges(normalizeBadgePayload(badgesRaw));
+          setAchievementsReady(true);
+        }
 
         const booksById = new Map<string, BooksRow>();
         ((booksResult.data ?? []) as BooksRow[]).forEach((book) => booksById.set(book.id, book));
@@ -301,6 +397,11 @@ export default function PublicProfile() {
       );
     });
   }, [diaryEntries, search]);
+
+  const publicUnlockedCount = useMemo(
+    () => publicBadges.filter((badge) => badge.unlocked).length,
+    [publicBadges]
+  );
 
   const isOwnProfile = Boolean(currentUserId && userId && currentUserId === userId);
   const isFollowing = Boolean(userId && followingIds.includes(userId));
@@ -451,6 +552,77 @@ export default function PublicProfile() {
                   ))
                 )}
               </div>
+            </section>
+
+            <section className="public-achievements space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="font-serif text-2xl">Achievements</h2>
+                {(isFollowing || isOwnProfile) && (
+                  <p className="text-xs text-muted-foreground">{publicUnlockedCount} unlocked</p>
+                )}
+              </div>
+
+              {isFollowing || isOwnProfile ? (
+                achievementsReady ? (
+                  publicBadges.length > 0 ? (
+                    <div className="achievements-view">
+                      <header className="achievements-header">
+                        <div>
+                          <div className="achievements-title">Achievement Cabinet</div>
+                          <div className="achievements-subtitle">Shared from their diary archive.</div>
+                        </div>
+                        <div className="achievements-count">
+                          <span className="achievements-count-num">{publicUnlockedCount}</span>
+                          <span className="achievements-count-total">/ {publicBadges.length}</span>
+                          <span className="achievements-count-label">Unlocked</span>
+                        </div>
+                      </header>
+
+                      <div className="achievements-grid">
+                        {publicBadges.map((badge) => {
+                          const isLocked = !badge.unlocked;
+                          const isHidden = Boolean(badge.hidden && !badge.unlocked);
+                          const BadgeIcon = badge.Icon;
+                          const progressText = isHidden ? "???" : badge.progress;
+                          return (
+                            <div key={badge.id} className={`badge-card ${isLocked ? "locked" : ""}`} data-tone={badge.tone}>
+                              <div className="badge-icon">
+                                <BadgeIcon size={20} />
+                              </div>
+                              <div className="badge-body">
+                                <div className="badge-name">{isHidden ? "Hidden Badge" : badge.name}</div>
+                                <div className="badge-desc">
+                                  {isHidden ? "Keep journaling to reveal this one." : badge.description}
+                                </div>
+                                <div className="badge-meta">
+                                  <span className="badge-category">{badge.category}</span>
+                                  <span className="badge-progress">{progressText}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-border py-10 text-center">
+                      <p className="font-serif italic text-muted-foreground">
+                        {isOwnProfile
+                          ? "Achievements will appear here after they open the Diary once."
+                          : "This cabinet hasn't been shared yet."}
+                      </p>
+                    </div>
+                  )
+                ) : (
+                  <div className="rounded-lg border border-border bg-card/40 p-8 text-sm text-muted-foreground">
+                    Loading achievements...
+                  </div>
+                )
+              ) : (
+                <div className="rounded-lg border border-dashed border-border py-10 text-center">
+                  <p className="font-serif italic text-muted-foreground">Follow to view their achievement cabinet.</p>
+                </div>
+              )}
             </section>
 
             <section className="space-y-3">
