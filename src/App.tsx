@@ -19,6 +19,7 @@ import Songs from "./pages/Songs";
 import PublicProfile from "./pages/PublicProfile";
 import Resources from "./pages/Resources";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
+import News from "./pages/News";
 
 const queryClient = new QueryClient();
 
@@ -227,7 +228,9 @@ const App = () => {
                   <Resources />
                 </ProtectedRoute>
               }
+              
             />
+            <Route path="/news" element={<News />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
