@@ -1,7 +1,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { MapPin, Search } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export function Navbar() {
@@ -36,7 +36,6 @@ export function Navbar() {
     { label: 'Movies', path: '/library/movies' },
     { label: 'Songs', path: '/library/songs' },
     { label: 'Diary', path: '/library/diary' },
-    { label: 'Resources', path: '/resources' },
     { label: 'News', path: '/news' }, // ✅ NEW
     { label: 'Profile', path: '/profile' },
   ];

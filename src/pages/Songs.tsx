@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Headphones, Loader2, Music2, Plus, RefreshCcw, Repeat2, Search, Trash2 } from 'lucide-react';
+import { Headphones, Loader2, Music2, Plus, RefreshCcw, Repeat2, Search, Trash2,BookOpen } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import AddSongForm from '@/components/AddSongForm';
 import { useSongs } from '@/hooks/use-songs';
+import LyricsDrawer from '@/components/LyricsDrawer';
 import {
   beginSpotifyLogin,
   completeSpotifyLogin,
@@ -64,6 +65,7 @@ export default function Songs() {
   const [filter, setFilter] = useState<SongFilter>('all');
   const [spotifyStatus, setSpotifyStatus] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [mode, setMode] = useState<'listening' | 'learning'>('listening');
 
   const mergeRecentPlayback = useCallback(
     (recentTracks: Awaited<ReturnType<typeof getRecentlyPlayedTracks>>) => {
@@ -225,6 +227,24 @@ export default function Songs() {
             >
               <Plus className="h-4 w-4" /> Add Song
             </button>
+            <button
+              onClick={() => setMode((m) => (m === 'listening' ? 'learning' : 'listening'))}
+              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-all ${
+                mode === 'learning'
+                  ? 'border-primary text-primary'
+                  : 'border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {mode === 'learning' ? (
+                <>
+                  <BookOpen className="h-4 w-4" /> Learning Mode
+                </>
+              ) : (
+                <>
+                  <Headphones className="h-4 w-4" /> Listening Mode
+                </>
+              )}
+            </button>
           </div>
         </div>
 
@@ -367,6 +387,13 @@ export default function Songs() {
                       </a>
                     )}
                   </div>
+                  {mode === 'learning' && (
+                    <LyricsDrawer
+                      songId={song.id}
+                      title={song.title}
+                      artist={song.artist}
+                    />
+                  )}
                 </div>
               </article>
             ))}
